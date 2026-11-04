@@ -55,7 +55,9 @@ v2 清单（记着，不主动做）：NPC 人格生成、动画生成与预览�
 - **氛围**：暖黄台灯 vs 冷蓝月光；亲密、安静、被照顾。
 - **NPC**：**鲸鲸**，1 个可对话女仆，会魔法（关灯 / 掀窗帘在设定上是法术，视觉用粒子收尾）。注意：**设定上的魔法不解决指令问题**，关灯 / 窗帘 / 更衣仍需显式的状态指令（§2 `set`）。
 - **两幕**：夜（侍寝）→ 晨（唤醒）。同一房间、同一套锚点与指令，靠 `set curtain` / `set light` 切换光照与天空盒；**先做侍寝，唤醒在 v1.5**。
+  - 侍寝顺序（v1）：问候 → 更衣 → **膝枕小睡** → 起身 → 引到床边 → 关灯 → 睡前故事 → 晚安。
 - **玩家视角**：第一人称，固定眼高，WASD 走动（v1 必做，约 3h；时间紧退化为固定机位，指令不受影响）。
+- **膝枕小睡（POV）**：鲸鲸坐在床边，你枕在她腿上；镜头从膝上向上看她，她低头、轻抚发丝（手部可省略，用发丝摆动与阴影代替）；灯光调暗，3 秒轻哼过渡 → 她说「就一会儿」→ 你随时说「起来」退出。
 
 ### 角色：鲸鲸
 
@@ -103,13 +105,14 @@ door ── bed ── window
 | `spawn` | `anchor`（必填）、`name`（选填，≤8 字） | 在锚点召唤一只夜灯精灵 | 锚点存在且不是 `player`；场上 ≤ 5 只 | 整批丢弃 |
 | `move` | `entity`（必填：`npc` 或 `wisp_N`）、`anchor`（必填） | NPC 沿锚点图走过去；精灵直线飘过去 | 实体存在；锚点存在；`player` 不可作目的地 | 整批丢弃 |
 | `look_at` | `entity`（必填，目前只有 `npc`）、`target`（必填：锚点名或 `player`） | NPC 转身面向目标（0.5s 平滑转身） | 实体存在；target 存在 | 整批丢弃 |
-| `set` | `target`（必填：`light` / `curtain` / `outfit`）、`state`（必填） | `light`: on/off；`curtain`: open/closed；`outfit`: nightgown/daydress | target、state 都在枚举内 | 整批丢弃 |
+| `set` | `target`（必填：`light` / `curtain` / `outfit` / `npc` / `player`）、`state`（必填） | `light`: on/off；`curtain`: open/closed；`outfit`: nightgown/daydress；`npc`: sit/stand；`player`: lap/stand | target、state 在枚举内；`player=lap` 需 npc 在 `bed` 且 `npc=sit` | 整批丢弃 |
 
 约定：
 
 - **更衣** = `move(screen)` + `set(outfit, daydress)`；屏风遮挡 + 1s 淡入切模型。
 - **关灯** = `set(light, off)`；台灯光强与房间环境光同步降，窗外月光保留。
 - **唤醒** = `set(curtain, open)` + `set(light, off)` + `say`；阳光进，天空盒切日间。
+- **膝枕** = `set(npc, sit)` + `set(player, lap)`（前提：npc 在 `bed`）；镜头从膝上向上看，输入锁定；退出 = `set(player, stand)` 或任何 `move`。
 - `entity` 在提示词里要求显式写；客户端缺省按 `npc` 处理。
 - 精灵 id 由客户端生成：`wisp_1`、`wisp_2`……
 - **不做**（v2 再说）：自由坐标、自由寻路、生成可对话 NPC、自由换装/换材质、多场景。
@@ -201,6 +204,7 @@ Unity 客户端                        FastAPI 编排服务                  LLM
 | `NpcAgent` | 沿路径插值走（1.2 m/s）+ 到点转身；`look_at` 平滑转向；换装淡入 | 4h |
 | `WispSpawner / WispMotion` | 发光球 + 点光 + 上下浮动；飘向锚点 | 3h |
 | `StateSwitcher` | 台灯 / 窗帘 / 服装三态；光照与天空盒联动 | 3h |
+| `PoseCamera` | 坐姿 / 膝枕机位 / 起身过渡 / 输入锁 | 2h |
 | `CommandExecutor` | 逐条执行 + 校验 + 日志（4 类 op） | 3h |
 | `DialogueUI` | 输入框、气泡、打字机、"思考中"提示 | 3h |
 | `DirectorClient` | UnityWebRequest + JSON + 超时 | 2h |
@@ -219,7 +223,9 @@ Unity 客户端                        FastAPI 编排服务                  LLM
 1. **鲸鲸的开场白 / 语气**：草案见 §1，确认或直接改。
 2. **Unity 安装**：最小模块见 §0.1（约 11–12GB + 项目 2–3GB）；C 盘剩 20.6GB，建议先清 5–10GB。
 3. **仓库落盘位置**：本机只有 C 盘，现为 `C:\YZ\Unity-npc-demo`；要不要统一到 `D:\Projects\Unity-npc-demo`（需换盘 clone，仓库内容不受影响）。
-4. **行为反应层级**（2026-11-04 新增讨论）：T0 注视（~1h）/ T1 事件触发（+2–3h）/ T2 第三人称（+5–6h）。推荐 T0+T1、不做 T2；若选 T2，目标顺延到 12-08。
+4. **行为反应**：已定 T0+T1（注视 + 事件触发，+3h → 57h、12-05）；T2 第三人称不做。
+5. **膝枕**：+3h（坐姿 / 机位 / 退出）→ 若加入总量 60h、目标 12-08；确认。
+6. **角色形象**：膝枕是脸部特写，会暴露形象质量。低多边形（0h）/ 剪影背光（0h）/ VRM 动漫（+4–6h）——待定。
 
 ## 7. AI 必要性证据（录屏必拍）
 
