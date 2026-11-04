@@ -1,0 +1,41 @@
+# ---- 本地资料，不入库 ----
+求职方向调查报告_*.md
+
+# ---- Unity ----
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Unity 生成的工程文件
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.vs/
+.idea/
+.vscode/
+
+# 构建产物
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# 模型/大文件
+crashlytics-build.properties
+sysinfo.txt
