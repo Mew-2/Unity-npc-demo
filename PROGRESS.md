@@ -68,20 +68,19 @@
   验证：SPEC 含 `set` 行与"夜/晨两幕"描述；PROGRESS 决策记录两条。
 - **2026-11-04** **M0 规格定稿**：SPEC 升 v1（鲸鲸 / 两幕 / 7 锚点 / 4 指令 / 第一人称 v1）；卡点清空；总量 54h、目标 12-02。
   验证：SPEC 首行标 v1；四问可逐条对应 §1–§5；本次 commit 即定稿记录。
-- **2026-11-05** 建 `UnityProject`（2022.3.62f3c1，CLI 创建，绕开 Hub）；离线配置 URP 14.0.12（`URP-Asset.asset` 已赋 Graphics + 6 个质量等级）；生成 `Assets/Scenes/NightRoom.unity`（相机 + 月光方向光 + 暖色点光 + 地面 + 测试方块）。
-  验证：两次 batchmode 均 exit=0；GraphicsSettings 引用的 guid 与 `URP-Asset.asset.meta` 一致；Library/Logs/UserSettings 已被 gitignore。
+- **2026-11-05** 工程重置：删除 CLI 生成的 `UnityProject`（含手工 URP 配置与 NightRoom 场景），改为用户手动用 Hub 的 **Universal 3D** 模板重建（模板自带 URP / IDE / TMP，避免裸工程缺包）。
 
 ## 当前卡点
 
-- Unity 已装好，工程已建；Hub 的 Remove / Add modules 对外部登记的安装无效，但不影响工作（CLI 建工程 + `OpenUnity.cmd` 直接打开）。
+- Unity 已装好；工程目录已清空，待用户用 Hub 的 Universal 3D 模板重建。
 - 待执行：鲸鲸开场白最终确认、膝枕是否接受（+3h→12-08）、角色形象方案（低多边形 / 剪影 / VRM）。
 
 ## 下一步
 
-1. 双击 `OpenUnity.cmd` 打开工程，确认 NightRoom 场景能正常渲染（相机/灯光/方块）
-2. 开始 M1：把卧室灰盒和 7 个锚点摆出来（先方块，后美术）
-3. 并行：服务端骨架（`server/`：`/direct` + 校验 + 离线回放）
-4. 晚上：另一台机器 clone 仓库，确认 commit 与 PROGRESS 可拉取
+1. Hub → 新项目 → **Universal 3D**（云端模板，需下载）→ 名称 `UnityProject` → 位置 `C:\YZ\Unity-npc-demo`
+2. 打开工程，确认 URP 正常、有 `.sln` 生成
+3. 再开始 M1：卧室灰盒 + 7 个锚点（先方块，后美术）
+4. 服务端骨架并行（`server/`：`/direct` + 校验 + 离线回放）
 
 ## 决策记录
 
