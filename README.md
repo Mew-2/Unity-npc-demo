@@ -36,7 +36,7 @@
 
 | 目录 | 内容 |
 |---|---|
-| `UnityProject/` | Unity 6 LTS 工程（建设中） |
+| `UnityProject/` | Unity 2022.3 LTS 工程（建设中） |
 | `server/` | FastAPI 编排服务（建设中） |
 | `docs/` | 规格与设计 |
 

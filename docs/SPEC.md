@@ -35,15 +35,16 @@ v2 清单（记着，不主动做）：NPC 人格生成、动画生成与预览�
 
 ## 0.1 工程环境（已定稿）
 
-- 两台机器都是 Windows；Unity 编辑器两台装 **Windows 版**，且同一 **6.3 LTS（6000.3.x）** 小版本（避免升级工程；6.0 LTS 已于 2026-10-16 结束安全支持）。
+- 两台机器都是 Windows；Unity 编辑器两台装 **Unity 2022.3 LTS 中国版（2022.3.62f3c1）**，同一小版本（避免升级工程）。
+  - 原因：自 2025-04 起 Unity 6 停止向中国大陆/港澳提供，全球 CDN 会 302 到中国镜像且无 6.x 文件；中国区官方可用的是 2022.3 中国版 LTS。团结引擎、UE5、Godot 均不选（见 2026-11-05 决策）。
 - 仓库内路径全英文、无空格；固定布局：`UnityProject/`（Unity 工程）、`server/`（LLM 编排）、`docs/`（文档）。
 - 两台机器保持**同一相对结构**；绝对路径不进任何入库文件（`.csproj`、`Library/`、`Logs/` 已 gitignore）。
 - 本机现状：只有 C 盘，工作区 `C:\YZ\Unity-npc-demo`（英文无空格，合规）。若公司机/家机有 D 盘，可 clone 到 `D:\Projects\Unity-npc-demo`——仓库不依赖绝对路径。
 - LLM 侧代码放同一仓库；如需 Linux 环境跑，WSL 经 `/mnt/d/Projects/Unity-npc-demo/server` 访问（D 盘时；C 盘则 `/mnt/c/...`）。
 - 双机同步：push 前先 `pull --rebase`；每次收工前更新 `PROGRESS.md`。
-- **安装体积（v1 必装）**：Hub ≈0.6GB + Unity 6 LTS 编辑器 ≈9–10GB + Windows Build Support (IL2CPP) ≈1.5GB ≈ **11–12GB**；项目 Library 另需 2–3GB。
+- **安装体积（v1 必装）**：Hub ≈0.6GB + Unity 2022.3 编辑器 ≈6–7GB + Windows Build Support (IL2CPP) ≈1.5GB ≈ **8–9GB**；项目 Library 另需 2–3GB。
   - **不装**：Android / iOS / WebGL 构建、Documentation、Visual Studio（VS Code / Rider 足够）。
-  - 安装包缓存装完即删（约 5GB）；本机 C 盘剩 20.6GB，建议先清出 ≥15GB 再装。
+  - 安装包缓存装完即删（约 5GB）；本机 C 盘已清出约 98GB，空间充足。
 
 ---
 
@@ -188,7 +189,7 @@ Unity 客户端                        FastAPI 编排服务                  LLM
 └───────────────────────┘
 ```
 
-- **Unity 6 LTS + URP 3D 模板**；Bloom 后期；TextMesh Pro；JSON 用 Newtonsoft（`com.unity.nuget.newtonsoft-json`）。
+- **Unity 2022.3 LTS（中国版）+ URP 14**；Bloom 后期；TextMesh Pro；JSON 用 Newtonsoft（`com.unity.nuget.newtonsoft-json`）。
 - **不让 Unity 直连大模型**：API Key 不能进客户端；校验 / 重试 / 日志在服务端才像工程；换模型只改一处。
 - 服务端为本仓库自带的小服务（**不依赖已有桌宠后端**），约 150–200 行：`POST /direct`、`GET /health`、离线回放。
 - 多轮：服务端保留最近 10 轮上下文（内存，重启清空）；长期记忆 v2。
@@ -212,16 +213,16 @@ Unity 客户端                        FastAPI 编排服务                  LLM
 
 ---
 
-## 5. 今天（2026-11-04）
+## 5. 今天（2026-11-05，安装日）
 
-- **白天第一步**：四问确认（10 分钟）→ 装 Unity Hub + Unity 6 LTS → 新建 URP 3D 空工程，场景里放一盏灯能亮（"环境 3h"的第一格）。
-- **白天第二步**：按 §0.1 把工程建在 `UnityProject/`，记下两端安装的同一 6 LTS 小版本号。
+- **白天第一步**：装 Unity Hub + **Unity 2022.3.62f3c1（中国版）** → 新建 **3D (URP)** 空工程，场景里放一盏灯能亮（"环境 3h"的第一格）。
+- **白天第二步**：按 §0.1 把工程建在 `UnityProject/`，记下两端安装的同一 `2022.3.62f3c1` 版本号。
 - **晚上回家第一步**：另一台机器 `git clone` 本仓库，确认 `PROGRESS.md` 与今天的 commit 都在；顺带确认两端路径都是纯英文无空格（双机同步验证）。不装 Unity、不写代码。
 
 ## 6. 待拍板
 
 1. **鲸鲸的开场白 / 语气**：草案见 §1，确认或直接改。
-2. **Unity 安装**：**6.3 LTS（6000.3.28f1 或 6.3 最新补丁）**，最小模块见 §0.1（约 11–12GB + 项目 2–3GB）；C 盘已清出约 98GB，空间充足。
+2. **Unity 安装**：**Unity 2022.3.62f3c1（中国版 LTS，URP 14）**，最小模块见 §0.1（约 8–9GB + 项目 2–3GB）；C 盘已清出约 98GB，空间充足。
 3. **仓库落盘位置**：本机只有 C 盘，现为 `C:\YZ\Unity-npc-demo`；要不要统一到 `D:\Projects\Unity-npc-demo`（需换盘 clone，仓库内容不受影响）。
 4. **行为反应**：已定 T0+T1（注视 + 事件触发，+3h → 57h、12-05）；T2 第三人称不做。
 5. **膝枕**：+3h（坐姿 / 机位 / 退出）→ 若加入总量 60h、目标 12-08；确认。
