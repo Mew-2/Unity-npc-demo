@@ -69,18 +69,21 @@
 - **2026-11-04** **M0 规格定稿**：SPEC 升 v1（鲸鲸 / 两幕 / 7 锚点 / 4 指令 / 第一人称 v1）；卡点清空；总量 54h、目标 12-02。
   验证：SPEC 首行标 v1；四问可逐条对应 §1–§5；本次 commit 即定稿记录。
 - **2026-11-05** 工程重置：删除 CLI 生成的 `UnityProject`（含手工 URP 配置与 NightRoom 场景），改为用户手动用 Hub 的 **Universal 3D** 模板重建（模板自带 URP / IDE / TMP，避免裸工程缺包）。
+- **2026-11-05** M1 起步：Hub Universal 3D 建成 `DawnAndDusk`；编写 `Anchor` / `AnchorGraph` / `NpcAgent` / `GreyboxBuilder`；灰盒生成成功，胶囊从 bed 走到 window（Scene 视图观察）；贴墙问题已修（锚点内移，待重跑）。commit `86952f6`。
+  验证：Console 无红字；日志出现 `[NpcAgent] 到达 window`；git push 成功。
 
 ## 当前卡点
 
-- Unity 已装好；工程目录已清空，待用户用 Hub 的 Universal 3D 模板重建。
-- 待执行：鲸鲸开场白最终确认、膝枕是否接受（+3h→12-08）、角色形象方案（低多边形 / 剪影 / VRM）。
+- 锚点内移后**尚未重跑**生成器（window / screen / desk / door 需离墙 ≥ 0.6m）。
+- `NpcAgent` 的三问未答（见 `docs/OWNERSHIP.md`）；答完才算 M1 收尾。
+- Hub 的 Remove / Add modules 对“外部登记”的安装无效，但不影响工作。
 
 ## 下一步
 
-1. Hub → 新项目 → **Universal 3D**（云端模板，需下载）→ 名称 `UnityProject` → 位置 `C:\YZ\Unity-npc-demo`
-2. 打开工程，确认 URP 正常、有 `.sln` 生成
-3. 再开始 M1：卧室灰盒 + 7 个锚点（先方块，后美术）
-4. 服务端骨架并行（`server/`：`/direct` + 校验 + 离线回放）
+1. 退出 Play → 删除 `Greybox` → 菜单 **Tools → DawnAndDusk → Build Greybox** → `Ctrl+S`
+2. 再测 bed ↔ window，确认不穿墙；录 10 秒作为 M1 验收
+3. 回答 `NpcAgent` 三问
+4. 下一块：服务端骨架（`server/`：`/direct` + 校验 + 离线回放）
 
 ## 决策记录
 
@@ -101,6 +104,9 @@
 | 2026-11-04 | 侍寝加"膝枕小睡"POV 桥段；+3h → 60h、12-08（待确认）；形象方案待定 | 用户 |
 | 2026-11-04 | Unity 版本定 **6.3 LTS（6000.3.x）**：6.0 LTS 已于 2026-10-16 结束安全支持；6.6 是 update 版不用；Unity 7 待 2027 Q1 | 官方版本表 |
 | 2026-11-05 | **改定 Unity 2022.3.62f3c1（中国版 LTS，URP 14）**：中国区无法下载 Unity 6（2025-04 起停供，全球 CDN 302 到无 6.x 的镜像，实测 404）；团结引擎 / UE5 / Godot 均不选 | 用户无 VPN + 实测 |
+| 2026-11-05 | 项目名 `DawnAndDusk`，产品名 `Dawn And Dusk`（路径无空格） | 用户 |
+| 2026-11-05 | 分工：AI 优先代写，每个模块交付时做 3 问自测；场景/锚点、调试现场、面试叙事必须用户亲自 | 用户 + 建议 |
+| 2026-11-05 | 角色按“可替换人格”设计（characters 配置），鲸鲸是彩蛋；多 NPC 争风吃醋进 v2 | 用户 |
 
 ## 红线自查（每次 push 后打勾）
 
