@@ -189,7 +189,7 @@ Unity 客户端                        FastAPI 编排服务                  LLM
 └───────────────────────┘
 ```
 
-- **Unity 2022.3 LTS（中国版）+ URP 14**；Bloom 后期；TextMesh Pro；JSON 用 Newtonsoft（`com.unity.nuget.newtonsoft-json`）。
+- **Unity 2022.3 LTS（中国版）+ URP 14.0.12**（URP 随编辑器内置，可离线）；Bloom 后期；UI 用 uGUI Text（TMP 未随中国版提供）；JSON 用 `JsonUtility`（Newtonsoft 未随版本提供）。
 - **不让 Unity 直连大模型**：API Key 不能进客户端；校验 / 重试 / 日志在服务端才像工程；换模型只改一处。
 - 服务端为本仓库自带的小服务（**不依赖已有桌宠后端**），约 150–200 行：`POST /direct`、`GET /health`、离线回放。
 - 多轮：服务端保留最近 10 轮上下文（内存，重启清空）；长期记忆 v2。

@@ -68,17 +68,20 @@
   验证：SPEC 含 `set` 行与"夜/晨两幕"描述；PROGRESS 决策记录两条。
 - **2026-11-04** **M0 规格定稿**：SPEC 升 v1（鲸鲸 / 两幕 / 7 锚点 / 4 指令 / 第一人称 v1）；卡点清空；总量 54h、目标 12-02。
   验证：SPEC 首行标 v1；四问可逐条对应 §1–§5；本次 commit 即定稿记录。
+- **2026-11-05** 建 `UnityProject`（2022.3.62f3c1，CLI 创建，绕开 Hub）；离线配置 URP 14.0.12（`URP-Asset.asset` 已赋 Graphics + 6 个质量等级）；生成 `Assets/Scenes/NightRoom.unity`（相机 + 月光方向光 + 暖色点光 + 地面 + 测试方块）。
+  验证：两次 batchmode 均 exit=0；GraphicsSettings 引用的 guid 与 `URP-Asset.asset.meta` 一致；Library/Logs/UserSettings 已被 gitignore。
 
 ## 当前卡点
 
-- 无阻塞。待执行：Unity 2022.3.62f3c1（中国版）安装（C 盘已清出约 98GB）、鲸鲸开场白最终确认、膝枕是否接受（+3h→12-08）、角色形象方案（低多边形 / 剪影 / VRM）。
+- Unity 已装好，工程已建；Hub 的 Remove / Add modules 对外部登记的安装无效，但不影响工作（CLI 建工程 + `OpenUnity.cmd` 直接打开）。
+- 待执行：鲸鲸开场白最终确认、膝枕是否接受（+3h→12-08）、角色形象方案（低多边形 / 剪影 / VRM）。
 
 ## 下一步
 
-1. 装 Unity Hub + **Unity 2022.3.62f3c1（中国版 LTS，URP 14）**，最小模块见 SPEC §0.1
-2. 新建 URP 工程 → 空房间 + 一盏能亮的灯（M1 第一步）
+1. 双击 `OpenUnity.cmd` 打开工程，确认 NightRoom 场景能正常渲染（相机/灯光/方块）
+2. 开始 M1：把卧室灰盒和 7 个锚点摆出来（先方块，后美术）
 3. 并行：服务端骨架（`server/`：`/direct` + 校验 + 离线回放）
-4. 晚上：另一台机器 clone 仓库，确认今天的 commit 与 PROGRESS 可拉取
+4. 晚上：另一台机器 clone 仓库，确认 commit 与 PROGRESS 可拉取
 
 ## 决策记录
 
