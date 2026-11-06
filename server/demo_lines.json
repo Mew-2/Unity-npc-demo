@@ -3,7 +3,7 @@
     {
       "player_text": "关灯，然后到床边看着我",
       "response": {
-        "say": "好，我关灯了。晚安。",
+        "say": "好——灯鲸鲸关了。……才不是特意等你，是灯太亮。",
         "commands": [
           { "op": "move", "entity": "npc", "anchor": "bed" },
           { "op": "look_at", "entity": "npc", "target": "player" },
@@ -14,7 +14,7 @@
     {
       "player_text": "我困了",
       "response": {
-        "say": "那鲸鲸把灯调暗，扶你到床边躺下，好不好？",
+        "say": "困了就躺好。鲸鲸把灯关了，别蹬被子。",
         "commands": [
           { "op": "set", "target": "light", "state": "off" },
           { "op": "move", "entity": "npc", "anchor": "bed" },
@@ -25,15 +25,32 @@
     {
       "player_text": "讲一个关于鲸鱼和灯塔的故事",
       "response": {
-        "say": "很久以前，有一头小鲸鱼，每晚都游到灯塔下面听钟声。守灯的人以为它迷路了，后来才发现，它是在等一句晚安。",
+        "say": "很久以前，有一头小鲸鱼，每晚都游到灯塔下面听钟声。守灯的人以为它迷路了——后来才发现，它是在等一句晚安。",
         "commands": []
       }
     },
     {
       "player_text": "唱首歌",
       "response": {
-        "say": "唱歌鲸鲸不太会……不过可以给你讲个故事，或者把灯调暗一点？",
+        "say": "唱歌？鲸鲸不会。讲故事可以，或者把灯调暗一点。",
         "commands": []
+      }
+    },
+    {
+      "player_text": "你是不是胖了",
+      "response": {
+        "say": "胖？是尾巴占地方！……再说鲸鲸要生气了。",
+        "commands": []
+      }
+    },
+    {
+      "player_text": "去窗边把窗帘拉开",
+      "response": {
+        "say": "鲸鲸记下了。……就这一次哦。",
+        "commands": [
+          { "op": "move", "entity": "npc", "anchor": "window" },
+          { "op": "set", "target": "curtain", "state": "open" }
+        ]
       }
     }
   ]
