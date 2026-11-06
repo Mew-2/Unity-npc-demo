@@ -1,10 +1,10 @@
 # SPEC — Unity + LLM NPC Demo
 
-- 版本：**v1（2026-11-04 定稿）**
-- 日期：2026-11-04
-- 范围冻结 v1：1 个场景（夜 / 晨两幕）/ 4 条指令（spawn / move / look_at / set）/ 锚点语义布点 / 可运行 demo + 录屏
+- 版本：**v1.2（2026-11-06 范围扩展）**
+- 范围：1 个场景（夜 / 晨两幕）/ 4 条指令（spawn / move / look_at / set）/ 锚点语义布点 / **VRM 鲸鲸（VRoid 自捏）** / 5 个表情 / 4 个玩家动作反应 / 膝枕 / 可运行 demo + 录屏
+- 目标完工：**2026-12-12**（AI 主力编码，VRM 美术管线占大头）
 
-> v1 已定稿。❓ 只剩两个执行项：Unity 安装体积、仓库落盘位置。
+> v1.2 已定稿。执行交接见 `docs/HANDOFF.md`，进度见 `PROGRESS.md`。
 
 ## 0. 考纲对齐（JD 原文 · 2026-11-04 勘误后）
 
@@ -204,7 +204,12 @@ Unity 客户端                        FastAPI 编排服务                  LLM
 | `NpcAgent` | 沿路径插值走（1.2 m/s）+ 到点转身；`look_at` 平滑转向；换装淡入 | 4h |
 | `WispSpawner / WispMotion` | 发光球 + 点光 + 上下浮动；飘向锚点 | 3h |
 | `StateSwitcher` | 台灯 / 窗帘 / 服装三态；光照与天空盒联动 | 3h |
-| `PoseCamera` | 坐姿 / 膝枕机位 / 起身过渡 / 输入锁 | 2h |
+| `PoseCamera` | 坐姿 / 膝枕机位 / 起身过渡 / 输入锁 | 3h |
+| `VrmAvatar` | VRM 导入、Humanoid、MToon/URP、表情桥接 | 6h |
+| `AnimationRig` | Idle / Walk / Sit / Turn（Mixamo Humanoid 重定向） | 4h |
+| `ExpressionController` | 5 个 blendshape 映射（喜 / 怒 / 困 / 惊讶 / 害羞） | 3h |
+| `PlayerActionDetector` | 摸头 / 拍背 / 靠近 / 关灯 事件 | 3h |
+| `ReactionController` | 事件 → 动画 + 预生成台词池 | 3h |
 | `CommandExecutor` | 逐条执行 + 校验 + 日志（4 类 op） | 3h |
 | `DialogueUI` | 输入框、气泡、打字机、"思考中"提示 | 3h |
 | `DirectorClient` | UnityWebRequest + JSON + 超时 | 2h |
@@ -212,20 +217,16 @@ Unity 客户端                        FastAPI 编排服务                  LLM
 
 ---
 
-## 5. 今天（2026-11-05，安装日）
+## 5. 周末在家（2026-11-07–08）
 
-- **白天第一步**：装 Unity Hub + **Unity 2022.3.62f3c1（中国版）** → 新建 **3D (URP)** 空工程，场景里放一盏灯能亮（"环境 3h"的第一格）。
-- **白天第二步**：按 §0.1 把工程建在 `UnityProject/`，记下两端安装的同一 `2022.3.62f3c1` 版本号。
-- **晚上回家第一步**：另一台机器 `git clone` 本仓库，确认 `PROGRESS.md` 与今天的 commit 都在；顺带确认两端路径都是纯英文无空格（双机同步验证）。不装 Unity、不写代码。
+详细清单见 `docs/HANDOFF.md`。目标：**装好 Unity + Python 环境，能打开工程、跑通服务端**；VRoid 捏人可选推进。
 
-## 6. 待拍板
+## 6. 已定（2026-11-06）
 
-1. **鲸鲸的开场白 / 语气**：草案见 §1，确认或直接改。
-2. **Unity 安装**：**Unity 2022.3.62f3c1（中国版 LTS，URP 14）**，最小模块见 §0.1（约 8–9GB + 项目 2–3GB）；C 盘已清出约 98GB，空间充足。
-3. **仓库落盘位置**：本机只有 C 盘，现为 `C:\YZ\Unity-npc-demo`；要不要统一到 `D:\Projects\Unity-npc-demo`（需换盘 clone，仓库内容不受影响）。
-4. **行为反应**：已定 T0+T1（注视 + 事件触发，+3h → 57h、12-05）；T2 第三人称不做。
-5. **膝枕**：+3h（坐姿 / 机位 / 退出）→ 若加入总量 60h、目标 12-08；确认。
-6. **角色形象**：膝枕是脸部特写，会暴露形象质量。低多边形（0h）/ 剪影背光（0h）/ VRM 动漫（+4–6h）——待定。
+1. **VRM**：VRoid Studio 自捏鲸鲸（蓝发 / 头鳍 / 女仆装），非商用公开 demo；不引用二创原图。
+2. **范围**：v1.2 = VRM + 5 表情 + 4 个玩家动作反应 + 膝枕；多 NPC / 语音 / 口型 / 更多指令进 v2。
+3. **排期**：目标 **12-12**；编码 AI 主力，美术管线人工。
+4. **角色卡**：`docs/CHARACTER.md` 为准。
 
 ## 7. AI 必要性证据（录屏必拍）
 

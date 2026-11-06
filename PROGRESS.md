@@ -37,22 +37,25 @@
 |---|---|---|---|---|
 | M0 规格定稿 | SPEC 四问拍板，升 v1 | SPEC.md 标 v1；本文件卡点清空 | 11-04 | **完成** |
 | M1 第一物体动起来 | Unity 里 NPC 沿锚点走一步（脚本直调，无 LLM） | 录 10s 或贴日志：从 bed 走到 window | 11-13 | 未开始 |
-| M2 demo 完工 | 自然语言 → JSON → 执行 + 录屏（含 30s 策划视角） | 3 分钟录屏 + 一键复现步骤 | 12-05 | 未开始 |
+| M2 demo 完工 | 自然语言 → JSON → 执行 + VRM + 动作反应 + 录屏 | 3 分钟录屏 + 一键复现步骤 | **12-12** | 未开始 |
 
-## 排程（54h）
+## 排程（v1.2，约 70h）
 
 | 块 | 预算 | 已完成 | 备注 |
 |---|---|---|---|
-| Unity 扫盲 | 12h | 0 | |
-| 环境 | 3h | 0 | Unity 安装、工程、双机 |
-| LLM 侧 | 7h | 0 | FastAPI 编排 + 校验 + 兜底 |
-| 场景 | 6h | 0 | 房间、光、锚点摆放（+1h 卧室） |
-| 核心指令 | 13h | 0 | spawn / move / look_at / set 执行器 |
-| 语义布点 | 5h | 0 | 锚点图 + 世界快照进提示词 |
+| Unity 扫盲 | 12h | 3h | 工程 / 灰盒 / 锚点 |
+| 环境 | 3h | 3h | Unity + Python |
+| LLM 侧 | 7h | 4h | FastAPI + 校验 + 回放 |
+| 场景 | 6h | 2h | 灰盒完成，美术待 VRM |
+| 核心指令 | 13h | 1h | NpcAgent 移动；执行器未写 |
+| 语义布点 | 5h | 2h | 锚点图 + 世界快照 |
+| VRM 与动画 | 10h | 0 | VRoid / Unity 导入 / 表情 / Mixamo |
+| 玩家动作反应 | 6h | 0 | 摸头 / 拍背 / 靠近 / 关灯 |
+| 膝枕与相机 | 3h | 0 | POV + 输入锁 |
 | 联调 | 5h | 0 | 端到端 |
-| 打磨 | 4h | 0 | 录屏、README、细节（含 30s 策划视角段落） |
+| 打磨 | 4h | 0 | 录屏、README、细节 |
 
-> 已定：T0+T1 +3h → 57h、12-05。膝枕 +3h → 60h、12-08（待确认）。角色形象方案待定。
+> v1.2：VRM + 表情 + 动作反应 + 膝枕进 v1；多 NPC / 语音 / 口型 / 更多指令进 v2。目标 **12-12**。
 
 ## 已完成
 
@@ -74,19 +77,23 @@
 - **2026-11-06** `NpcAgent` 三问自测：Q2 / Q3 通过；Q1 用户指出“bed→window 本来就是直连边，看不出区别”成立，补讲锚点图价值在拓扑约束与可验证性（非避障）。结论已记入 `docs/OWNERSHIP.md`。
 - **2026-11-06** 锚点图改为**几何可见性自动连边**：`AnchorGraph.Build()` 对每对锚点 `Physics.Linecast`（高度 1m，忽略 NPC），无遮挡即直连；移除手写边表。修正 `screen → door` 绕 bed 的假路径；`NpcAgent` 补 `screen` 测试菜单。
 - **2026-11-06** 服务端骨架完成：`server/`（FastAPI `/direct` + `/health` + Pydantic 模型 + 指令校验 + JSON 失败重试 + 离线回放 + `turns.jsonl` 日志）；Python 3.12.10 venv，清华源装依赖；`pytest` **11 passed**；离线 HTTP 验证 `/health` 与 `/direct` 均正常。`.vscode/launch.json` 支持 F5 启动。
+- **2026-11-06** 角色卡定稿（鲸鲸 / 鲸鱼娘设定，`docs/CHARACTER.md`），人设写入 `server/prompt.py` 与 `demo_lines.json`，commit `a1f6e7c`。
+- **2026-11-06** **范围升 v1.2**：VRM 鲸鲸（VRoid 自捏）+ 5 个表情 + 4 个玩家动作反应 + 膝枕进 v1；目标改 **12-12**；周末交接清单 `docs/HANDOFF.md`。
 
 ## 当前卡点
 
 - M1 还差**验收录屏**（10 秒，bed→window）。
-- 服务端离线模式已验证；未配置 `LLM_API_KEY`，真实模型路径未跑。
-- Unity 侧还没有 `DirectorClient` / `CommandExecutor`，两端未联调。
-- Hub 的 Remove / Add modules 对“外部登记”的安装无效，但不影响工作。
+- **VRM 未开始**：VRoid 模型、Unity 导入、表情、动画都还没做。
+- Unity 侧还没有 `DirectorClient` / `DialogueUI` / `CommandExecutor`，两端未联调。
+- 周末在家需要装 Unity 2022.3.62f3c1 + Python 3.12（见 `docs/HANDOFF.md`）。
+- 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
 
 ## 下一步
 
-1. Unity 侧：`DirectorClient`（调 `/direct`）+ `CommandExecutor`（执行 4 条指令）
-2. M1 验收：录 10 秒 bed→window
-3. 联调：离线模式下 Unity 说一句 → 服务端回指令 → NPC 动起来
+1. **周末（在家）**：按 `docs/HANDOFF.md` 装环境、clone、验工程与服务端；有余力开始 VRoid 捏鲸鲸
+2. **下周一**：我写 `DirectorClient` + `DialogueUI` + `CommandExecutor`，跑通「输入 → 指令 → NPC 动」
+3. VRM 导入 + 表情映射 + Mixamo 动画 + 玩家动作反应 + 膝枕
+4. M2 录屏（12-12）
 
 ## 决策记录
 
@@ -108,6 +115,9 @@
 | 2026-11-04 | Unity 版本定 **6.3 LTS（6000.3.x）**：6.0 LTS 已于 2026-10-16 结束安全支持；6.6 是 update 版不用；Unity 7 待 2027 Q1 | 官方版本表 |
 | 2026-11-05 | **改定 Unity 2022.3.62f3c1（中国版 LTS，URP 14）**：中国区无法下载 Unity 6（2025-04 起停供，全球 CDN 302 到无 6.x 的镜像，实测 404）；团结引擎 / UE5 / Godot 均不选 | 用户无 VPN + 实测 |
 | 2026-11-05 | 项目名 `DawnAndDusk`，产品名 `Dawn And Dusk`（路径无空格） | 用户 |
+| 2026-11-06 | 角色形象定 **VRM（VRoid 自捏鲸鲸）**，非商用公开 demo；不引用二创图 | 用户 |
+| 2026-11-06 | **范围升 v1.2**：VRM + 5 表情 + 4 个玩家动作反应 + 膝枕；多 NPC / 语音 / 口型 / 更多指令进 v2 | 用户 |
+| 2026-11-06 | 目标改 **12-12**；编码 AI 主力，美术管线（VRM/动画/表情）人工 | 用户 + 重估 |
 | 2026-11-05 | 分工：AI 优先代写，每个模块交付时做 3 问自测；场景/锚点、调试现场、面试叙事必须用户亲自 | 用户 + 建议 |
 | 2026-11-05 | 角色按“可替换人格”设计（characters 配置），鲸鲸是彩蛋；多 NPC 争风吃醋进 v2 | 用户 |
 
