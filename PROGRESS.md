@@ -69,21 +69,20 @@
 - **2026-11-04** **M0 规格定稿**：SPEC 升 v1（鲸鲸 / 两幕 / 7 锚点 / 4 指令 / 第一人称 v1）；卡点清空；总量 54h、目标 12-02。
   验证：SPEC 首行标 v1；四问可逐条对应 §1–§5；本次 commit 即定稿记录。
 - **2026-11-05** 工程重置：删除 CLI 生成的 `UnityProject`（含手工 URP 配置与 NightRoom 场景），改为用户手动用 Hub 的 **Universal 3D** 模板重建（模板自带 URP / IDE / TMP，避免裸工程缺包）。
-- **2026-11-05** M1 起步：Hub Universal 3D 建成 `DawnAndDusk`；编写 `Anchor` / `AnchorGraph` / `NpcAgent` / `GreyboxBuilder`；灰盒生成成功，胶囊从 bed 走到 window（Scene 视图观察）；贴墙问题已修（锚点内移，待重跑）。commit `86952f6`。
-  验证：Console 无红字；日志出现 `[NpcAgent] 到达 window`；git push 成功。
+- **2026-11-05** M1 起步：Hub Universal 3D 建成 `DawnAndDusk`；编写 `Anchor` / `AnchorGraph` / `NpcAgent` / `GreyboxBuilder`；灰盒生成成功，胶囊从 bed 走到 window（Scene 视图观察）；贴墙问题已修（锚点内移并已重跑确认）。commit `86952f6`。
+  验证：Console 无红字；日志出现 `[NpcAgent] 到达 window`；场景内锚点坐标为 2.3 / 1.9 / -2.3；git push 成功。
+- **2026-11-06** `NpcAgent` 三问自测：Q2 / Q3 通过；Q1 用户指出“bed→window 本来就是直连边，看不出区别”成立，补讲锚点图价值在拓扑约束与可验证性（非避障）。结论已记入 `docs/OWNERSHIP.md`。
 
 ## 当前卡点
 
-- 锚点内移后**尚未重跑**生成器（window / screen / desk / door 需离墙 ≥ 0.6m）。
-- `NpcAgent` 的三问未答（见 `docs/OWNERSHIP.md`）；答完才算 M1 收尾。
+- M1 还差**验收录屏**（10 秒，bed→window）与 `door→desk` 的拐弯验证。
 - Hub 的 Remove / Add modules 对“外部登记”的安装无效，但不影响工作。
 
 ## 下一步
 
-1. 退出 Play → 删除 `Greybox` → 菜单 **Tools → DawnAndDusk → Build Greybox** → `Ctrl+S`
-2. 再测 bed ↔ window，确认不穿墙；录 10 秒作为 M1 验收
-3. 回答 `NpcAgent` 三问
-4. 下一块：服务端骨架（`server/`：`/direct` + 校验 + 离线回放）
+1. 先 `WalkTo("door")` 再 `WalkTo("desk")`，看它经 bed、screen 拐弯（2 分钟）
+2. 录 10 秒 bed→window 作为 M1 验收
+3. 开始服务端骨架（`server/`：`/direct` + 校验 + 离线回放）；用户写校验逻辑，AI 给骨架
 
 ## 决策记录
 
