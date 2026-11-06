@@ -73,18 +73,20 @@
   验证：Console 无红字；日志出现 `[NpcAgent] 到达 window`；场景内锚点坐标为 2.3 / 1.9 / -2.3；git push 成功。
 - **2026-11-06** `NpcAgent` 三问自测：Q2 / Q3 通过；Q1 用户指出“bed→window 本来就是直连边，看不出区别”成立，补讲锚点图价值在拓扑约束与可验证性（非避障）。结论已记入 `docs/OWNERSHIP.md`。
 - **2026-11-06** 锚点图改为**几何可见性自动连边**：`AnchorGraph.Build()` 对每对锚点 `Physics.Linecast`（高度 1m，忽略 NPC），无遮挡即直连；移除手写边表。修正 `screen → door` 绕 bed 的假路径；`NpcAgent` 补 `screen` 测试菜单。
+- **2026-11-06** 服务端骨架完成：`server/`（FastAPI `/direct` + `/health` + Pydantic 模型 + 指令校验 + JSON 失败重试 + 离线回放 + `turns.jsonl` 日志）；Python 3.12.10 venv，清华源装依赖；`pytest` **11 passed**；离线 HTTP 验证 `/health` 与 `/direct` 均正常。`.vscode/launch.json` 支持 F5 启动。
 
 ## 当前卡点
 
-- 自动连边后的路径尚未逐对验证（screen→door / desk→window 应为直线）。
 - M1 还差**验收录屏**（10 秒，bed→window）。
+- 服务端离线模式已验证；未配置 `LLM_API_KEY`，真实模型路径未跑。
+- Unity 侧还没有 `DirectorClient` / `CommandExecutor`，两端未联调。
 - Hub 的 Remove / Add modules 对“外部登记”的安装无效，但不影响工作。
 
 ## 下一步
 
-1. 验证 `screen → door`、`desk → window`、`door → window` 是否为直线
-2. 录 10 秒 bed→window 作为 M1 验收
-3. 开始服务端骨架（`server/`：`/direct` + 校验 + 离线回放）；用户写校验逻辑，AI 给骨架
+1. Unity 侧：`DirectorClient`（调 `/direct`）+ `CommandExecutor`（执行 4 条指令）
+2. M1 验收：录 10 秒 bed→window
+3. 联调：离线模式下 Unity 说一句 → 服务端回指令 → NPC 动起来
 
 ## 决策记录
 

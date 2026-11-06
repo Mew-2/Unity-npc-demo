@@ -28,7 +28,9 @@
 *.VC.db
 .vs/
 .idea/
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
 
 # 构建产物
 *.apk
@@ -39,3 +41,12 @@
 # 模型/大文件
 crashlytics-build.properties
 sysinfo.txt
+
+# ---- Python（server） ----
+server/.venv/
+server/logs/
+server/_libs/
+.tmp/
+__pycache__/
+*.pyc
+.pytest_cache/
