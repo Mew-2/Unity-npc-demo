@@ -162,6 +162,45 @@ public class NpcAgent : MonoBehaviour
         }
     }
 
+    [ContextMenu("Test: walk to door")]
+    void TestWalkToDoor()
+    {
+        if (Application.isPlaying)
+        {
+            WalkTo("door");
+        }
+        else
+        {
+            Debug.Log("[NpcAgent] 先进入 Play 模式再测试。");
+        }
+    }
+
+    [ContextMenu("Test: walk to desk")]
+    void TestWalkToDesk()
+    {
+        if (Application.isPlaying)
+        {
+            WalkTo("desk");
+        }
+        else
+        {
+            Debug.Log("[NpcAgent] 先进入 Play 模式再测试。");
+        }
+    }
+
+    [ContextMenu("Test: walk to screen")]
+    void TestWalkToScreen()
+    {
+        if (Application.isPlaying)
+        {
+            WalkTo("screen");
+        }
+        else
+        {
+            Debug.Log("[NpcAgent] 先进入 Play 模式再测试。");
+        }
+    }
+
     void OnDrawGizmosSelected()
     {
         // 选中时把当前所在锚点画出来，方便调试。

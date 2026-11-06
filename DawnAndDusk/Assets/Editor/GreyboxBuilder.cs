@@ -43,13 +43,7 @@ public static class GreyboxBuilder
         AddAnchor(graph, root.transform, "lamp", "台灯", "床头灯，可开可关", new Vector3(0.8f, 0f, 2.2f));
         AddAnchor(graph, root.transform, "player", "你", "玩家位置（伪锚点，只作 look_at 目标）", new Vector3(0f, 1.6f, 0f));
 
-        graph.edges = new List<AnchorGraph.Edge>
-        {
-            new AnchorGraph.Edge { a = "door", b = "bed" },
-            new AnchorGraph.Edge { a = "bed", b = "window" },
-            new AnchorGraph.Edge { a = "bed", b = "screen" },
-            new AnchorGraph.Edge { a = "screen", b = "desk" }
-        };
+        // 边不手写：AnchorGraph 运行时会按几何可见性自动连（射线检测）。
 
         if (Camera.main == null)
         {

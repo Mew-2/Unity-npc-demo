@@ -72,15 +72,17 @@
 - **2026-11-05** M1 起步：Hub Universal 3D 建成 `DawnAndDusk`；编写 `Anchor` / `AnchorGraph` / `NpcAgent` / `GreyboxBuilder`；灰盒生成成功，胶囊从 bed 走到 window（Scene 视图观察）；贴墙问题已修（锚点内移并已重跑确认）。commit `86952f6`。
   验证：Console 无红字；日志出现 `[NpcAgent] 到达 window`；场景内锚点坐标为 2.3 / 1.9 / -2.3；git push 成功。
 - **2026-11-06** `NpcAgent` 三问自测：Q2 / Q3 通过；Q1 用户指出“bed→window 本来就是直连边，看不出区别”成立，补讲锚点图价值在拓扑约束与可验证性（非避障）。结论已记入 `docs/OWNERSHIP.md`。
+- **2026-11-06** 锚点图改为**几何可见性自动连边**：`AnchorGraph.Build()` 对每对锚点 `Physics.Linecast`（高度 1m，忽略 NPC），无遮挡即直连；移除手写边表。修正 `screen → door` 绕 bed 的假路径；`NpcAgent` 补 `screen` 测试菜单。
 
 ## 当前卡点
 
-- M1 还差**验收录屏**（10 秒，bed→window）与 `door→desk` 的拐弯验证。
+- 自动连边后的路径尚未逐对验证（screen→door / desk→window 应为直线）。
+- M1 还差**验收录屏**（10 秒，bed→window）。
 - Hub 的 Remove / Add modules 对“外部登记”的安装无效，但不影响工作。
 
 ## 下一步
 
-1. 先 `WalkTo("door")` 再 `WalkTo("desk")`，看它经 bed、screen 拐弯（2 分钟）
+1. 验证 `screen → door`、`desk → window`、`door → window` 是否为直线
 2. 录 10 秒 bed→window 作为 M1 验收
 3. 开始服务端骨架（`server/`：`/direct` + 校验 + 离线回放）；用户写校验逻辑，AI 给骨架
 

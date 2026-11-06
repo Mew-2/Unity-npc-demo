@@ -15,6 +15,14 @@ public class AnchorGraph : MonoBehaviour
     }
 
     public List<Anchor> anchors = new List<Anchor>();
+
+    [Tooltip("按几何可见性自动连边：两点之间没被碰撞体挡住就直连")]
+    public bool autoConnect = true;
+
+    [Tooltip("探测高度（米）：从锚点地面往上抬，避开地面")]
+    public float probeHeight = 1f;
+
+    [Tooltip("手工补充的边（自动连边之外额外加，一般留空）")]
     public List<Edge> edges = new List<Edge>();
 
     readonly Dictionary<string, Anchor> _byId = new Dictionary<string, Anchor>();
@@ -26,7 +34,7 @@ public class AnchorGraph : MonoBehaviour
         Build();
     }
 
-    /// <summary>重建索引。场景里增删锚点后调用一次。</summary>
+    /// <summary>重建索引与连边。场景里增删锚点后调用一次。</summary>
     public void Build()
     {
         _byId.Clear();
@@ -43,19 +51,73 @@ public class AnchorGraph : MonoBehaviour
             _neighbours[anchor.id] = new List<string>();
         }
 
+        if (autoConnect)
+        {
+            AutoConnect();
+        }
+
         foreach (var edge in edges)
         {
-            if (!_neighbours.ContainsKey(edge.a) || !_neighbours.ContainsKey(edge.b))
-            {
-                Debug.LogWarning($"[AnchorGraph] 边引用了不存在的锚点：{edge.a} - {edge.b}");
-                continue;
-            }
-
-            _neighbours[edge.a].Add(edge.b);
-            _neighbours[edge.b].Add(edge.a);
+            AddNeighbour(edge.a, edge.b);
         }
 
         _built = true;
+    }
+
+    /// <summary>
+    /// 可见性连边：两两锚点做一次射线检测，
+    /// 没被墙/家具挡住就直连（挡住才绕路）。
+    /// NPC 自身的碰撞体不算遮挡。
+    /// </summary>
+    void AutoConnect()
+    {
+        var ids = new List<string>();
+        foreach (var pair in _byId)
+        {
+            if (pair.Key != "player")
+            {
+                ids.Add(pair.Key);
+            }
+        }
+
+        for (var i = 0; i < ids.Count; i++)
+        {
+            for (var j = i + 1; j < ids.Count; j++)
+            {
+                var from = _byId[ids[i]].transform.position + Vector3.up * probeHeight;
+                var to = _byId[ids[j]].transform.position + Vector3.up * probeHeight;
+
+                if (Physics.Linecast(from, to, out var hit, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    // 打到 NPC 不算遮挡；打到墙 / 家具才算。
+                    if (hit.collider.GetComponentInParent<NpcAgent>() == null)
+                    {
+                        continue;
+                    }
+                }
+
+                AddNeighbour(ids[i], ids[j]);
+            }
+        }
+    }
+
+    void AddNeighbour(string a, string b)
+    {
+        if (!_neighbours.ContainsKey(a) || !_neighbours.ContainsKey(b))
+        {
+            Debug.LogWarning($"[AnchorGraph] 边引用了不存在的锚点：{a} - {b}");
+            return;
+        }
+
+        if (!_neighbours[a].Contains(b))
+        {
+            _neighbours[a].Add(b);
+        }
+
+        if (!_neighbours[b].Contains(a))
+        {
+            _neighbours[b].Add(a);
+        }
     }
 
     public bool Has(string id)
