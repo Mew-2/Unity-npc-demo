@@ -81,20 +81,20 @@
 - **2026-11-06** **范围升 v1.2**：VRM 鲸鲸（VRoid 自捏）+ 5 个表情 + 4 个玩家动作反应 + 膝枕进 v1；目标改 **12-12**；周末交接清单 `docs/HANDOFF.md`。
 - **2026-11-09** 资产调研定档：v1 改用 **tegnike 的 DeepSeek-chan VRM**（免费、VRM 1.0、18 表情、CC BY-NC-SA）；新增 `docs/ASSETS.md` 记录采用/候选/放弃与授权。未改工程。
 - **2026-11-09** Unity 客户端三件套完成并**端到端跑通**：`DirectorClient`（POST `/direct`）+ `DialogueUI`（运行时 UI，中文用系统雅黑）+ `CommandExecutor`（顺序执行、等 `move` 到位）；`NpcAgent` 补 `TurnTo`。验证：输入「去窗边把窗帘拉开」→ 走到 window；再输入「我困了」→ 回 bed。`set` / `spawn` 仍为占位。VS Code 终端红字是 `Activate.ps1` 被 PowerShell 执行策略拦截，不影响（debugpy 直接用 venv python）。
-- **2026-11-09** 换角色接缝：`CharacterProfile`（id / personaId / Visual prefab / 身高 / 骨骼 / 表情映射）+ `CharacterSwitcher`（运行时换 Visual、改 `groundOffset`、通知服务端 `character_id`）；`/direct` 请求带 `character_id`，服务端 `PERSONAS` 字典（暂只有 whale）。`pytest 11 passed`。VRM 33.6MB 后台下载中。
+- **2026-11-09** 换角色接缝：`CharacterProfile`（id / personaId / Visual prefab / 身高 / 骨骼 / 表情映射）+ `CharacterSwitcher`（运行时换 Visual、改 `groundOffset`、通知服务端 `character_id`）；`/direct` 请求带 `character_id`，服务端 `PERSONAS` 字典（暂只有 whale）。`pytest 11 passed`。
+- **2026-11-09 收工**：`DeepSeek-chan.vrm` 下载完成（33,616,628 B）并入库，附 `CREDITS.md` 与 CC BY-NC-SA 4.0 说明；UniVRM **0.131.4** 的两个 `.unitypackage` 已下载到本机，**尚未导入 Unity**。`set`（灯/窗帘/换装）已落地；`spawn` 砍掉。
 
 ## 当前卡点
 
+- **VRM 未导入**：UniVRM 还没装，模型还不在场景里；表情/动画/物理都没验证。
 - M1 还差**验收录屏**（10 秒，bed→window）。
-- **VRM 未导入**：模型、UniVRM、表情、动画都还没做。
-- `set` / `spawn` 是占位：灯 / 窗帘 / 换装 / 灯灵还没接。
 - 玩家动作反应、膝枕、两幕切换未开始。
 - 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
 
 ## 下一步
 
-1. `StateSwitcher`（灯 / 窗帘 / 换装）+ `WispSpawner`，把 `set` / `spawn` 落地
-2. VRM 导入（UniVRM）+ 动画（Idle/Walk/Sit） + 表情映射
+1. 导入 UniVRM 0.131.4 → 拖入 `DeepSeek-chan.vrm`，验证材质 / 表情 / SpringBone
+2. 我写 `ExpressionController` + Animator（Idle/Walk/Sit）+ 一键装配 `CharacterProfile`
 3. 玩家动作反应（摸头 / 拍背 / 靠近）+ 膝枕
 4. M2 录屏（12-12）
 
