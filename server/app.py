@@ -16,6 +16,7 @@ import time
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 
 from fastapi import FastAPI
 
@@ -77,8 +78,13 @@ async def direct(request: DirectRequest) -> DirectResponse:
             )
             return DirectResponse(say=offline.FALLBACK["say"], commands=[])
 
-    say = data.get("say") if isinstance(data.get("say"), str) else ""
-    commands = data.get("commands", [])
+    raw_say = data.get("say")
+    say: str = raw_say if isinstance(raw_say, str) else ""
+    raw_commands = data.get("commands", [])
+    commands = cast(
+        list[dict[str, Any]],
+        raw_commands if isinstance(raw_commands, list) else [],
+    )
 
     errors = validate_commands(commands, request.world)
     elapsed_ms = round((time.perf_counter() - started) * 1000)
