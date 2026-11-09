@@ -80,20 +80,21 @@
 - **2026-11-06** 角色卡定稿（鲸鲸 / 鲸鱼娘设定，`docs/CHARACTER.md`），人设写入 `server/prompt.py` 与 `demo_lines.json`，commit `a1f6e7c`。
 - **2026-11-06** **范围升 v1.2**：VRM 鲸鲸（VRoid 自捏）+ 5 个表情 + 4 个玩家动作反应 + 膝枕进 v1；目标改 **12-12**；周末交接清单 `docs/HANDOFF.md`。
 - **2026-11-09** 资产调研定档：v1 改用 **tegnike 的 DeepSeek-chan VRM**（免费、VRM 1.0、18 表情、CC BY-NC-SA）；新增 `docs/ASSETS.md` 记录采用/候选/放弃与授权。未改工程。
+- **2026-11-09** Unity 客户端三件套完成并**端到端跑通**：`DirectorClient`（POST `/direct`）+ `DialogueUI`（运行时 UI，中文用系统雅黑）+ `CommandExecutor`（顺序执行、等 `move` 到位）；`NpcAgent` 补 `TurnTo`。验证：输入「去窗边把窗帘拉开」→ 走到 window；再输入「我困了」→ 回 bed。`set` / `spawn` 仍为占位。VS Code 终端红字是 `Activate.ps1` 被 PowerShell 执行策略拦截，不影响（debugpy 直接用 venv python）。
 
 ## 当前卡点
 
 - M1 还差**验收录屏**（10 秒，bed→window）。
-- **VRM 未开始**：VRoid 模型、Unity 导入、表情、动画都还没做。
-- Unity 侧还没有 `DirectorClient` / `DialogueUI` / `CommandExecutor`，两端未联调。
-- 周末在家需要装 Unity 2022.3.62f3c1 + Python 3.12（见 `docs/HANDOFF.md`）。
+- **VRM 未导入**：模型、UniVRM、表情、动画都还没做。
+- `set` / `spawn` 是占位：灯 / 窗帘 / 换装 / 灯灵还没接。
+- 玩家动作反应、膝枕、两幕切换未开始。
 - 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
 
 ## 下一步
 
-1. **周末（在家）**：按 `docs/HANDOFF.md` 装环境、clone、验工程与服务端；有余力开始 VRoid 捏鲸鲸
-2. **下周一**：我写 `DirectorClient` + `DialogueUI` + `CommandExecutor`，跑通「输入 → 指令 → NPC 动」
-3. VRM 导入 + 表情映射 + Mixamo 动画 + 玩家动作反应 + 膝枕
+1. `StateSwitcher`（灯 / 窗帘 / 换装）+ `WispSpawner`，把 `set` / `spawn` 落地
+2. VRM 导入（UniVRM）+ 动画（Idle/Walk/Sit） + 表情映射
+3. 玩家动作反应（摸头 / 拍背 / 靠近）+ 膝枕
 4. M2 录屏（12-12）
 
 ## 决策记录

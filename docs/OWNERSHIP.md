@@ -12,6 +12,7 @@
 | `NpcAgent` | AI | 仅阅读 | bed→window 走通；重跑灰盒后锚点坐标正确 | **Q1 半对（已补讲）/ Q2 通过 / Q3 通过** |
 | `GreyboxBuilder` | AI | 决定重跑 | 生成房间 + 锚点 + 相机 + NPC | 待问 |
 | `server/`（app / validator / prompt / llm / offline） | AI | 指定“离线优先” | `/health`、`/direct` 正常；pytest 11 passed | 待问 |
+| `DirectorClient` / `DialogueUI` / `CommandExecutor` | AI | 无 | 端到端：输入 → `/direct` → `move` / `look_at` 生效 | 待问 |
 
 ## 2026-11-06 自测结果
 
@@ -33,6 +34,12 @@
 1. 客户端已经校验一遍了，为什么服务端还要校验？
 2. 校验发现一条指令不合法，为什么整批丢弃，而不是执行合法的部分？
 3. 离线回放（`OFFLINE=1`）在录屏时解决什么问题？为什么不直接调模型？
+
+## 客户端三问（待答）
+
+1. 为什么 `move` 要等 `!npc.IsMoving` 才开始下一条，而不是一口气发完？
+2. 客户端已经知道锚点，为什么还要把世界快照发给服务端？
+3. 这里用 `JsonUtility` 而不是 Newtonsoft，取舍是什么？
 
 ## 后续模块（占位）
 

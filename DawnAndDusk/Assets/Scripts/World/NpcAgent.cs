@@ -84,6 +84,53 @@ public class NpcAgent : MonoBehaviour
         _moveRoutine = StartCoroutine(MoveAlong(path));
     }
 
+    /// <summary>0.5 秒内转向目标（锚点名或 player）。</summary>
+    public Coroutine TurnTo(string targetId)
+    {
+        return StartCoroutine(TurnRoutine(targetId));
+    }
+
+    IEnumerator TurnRoutine(string targetId)
+    {
+        Vector3 targetPosition;
+
+        if (targetId == "player" && Camera.main != null)
+        {
+            targetPosition = Camera.main.transform.position;
+        }
+        else
+        {
+            var anchor = graph != null ? graph.Get(targetId) : null;
+            if (anchor == null)
+            {
+                yield break;
+            }
+
+            targetPosition = anchor.transform.position + Vector3.up * groundOffset;
+        }
+
+        var direction = targetPosition - transform.position;
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.0001f)
+        {
+            yield break;
+        }
+
+        var targetRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+        var startRotation = transform.rotation;
+        const float duration = 0.5f;
+        var elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            transform.rotation = Quaternion.Slerp(startRotation, targetRotation, Mathf.Clamp01(elapsed / duration));
+            yield return null;
+        }
+
+        transform.rotation = targetRotation;
+    }
+
     IEnumerator MoveAlong(List<string> path)
     {
         IsMoving = true;
