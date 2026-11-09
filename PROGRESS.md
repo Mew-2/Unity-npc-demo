@@ -79,6 +79,7 @@
 - **2026-11-06** 服务端骨架完成：`server/`（FastAPI `/direct` + `/health` + Pydantic 模型 + 指令校验 + JSON 失败重试 + 离线回放 + `turns.jsonl` 日志）；Python 3.12.10 venv，清华源装依赖；`pytest` **11 passed**；离线 HTTP 验证 `/health` 与 `/direct` 均正常。`.vscode/launch.json` 支持 F5 启动。
 - **2026-11-06** 角色卡定稿（鲸鲸 / 鲸鱼娘设定，`docs/CHARACTER.md`），人设写入 `server/prompt.py` 与 `demo_lines.json`，commit `a1f6e7c`。
 - **2026-11-06** **范围升 v1.2**：VRM 鲸鲸（VRoid 自捏）+ 5 个表情 + 4 个玩家动作反应 + 膝枕进 v1；目标改 **12-12**；周末交接清单 `docs/HANDOFF.md`。
+- **2026-11-09** 资产调研定档：v1 改用 **tegnike 的 DeepSeek-chan VRM**（免费、VRM 1.0、18 表情、CC BY-NC-SA）；新增 `docs/ASSETS.md` 记录采用/候选/放弃与授权。未改工程。
 
 ## 当前卡点
 
@@ -120,6 +121,8 @@
 | 2026-11-06 | 目标改 **12-12**；编码 AI 主力，美术管线（VRM/动画/表情）人工 | 用户 + 重估 |
 | 2026-11-05 | 分工：AI 优先代写，每个模块交付时做 3 问自测；场景/锚点、调试现场、面试叙事必须用户亲自 | 用户 + 建议 |
 | 2026-11-05 | 角色按“可替换人格”设计（characters 配置），鲸鲸是彩蛋；多 NPC 争风吃醋进 v2 | 用户 |
+| 2026-11-09 | v1 角色资产定 **tegnike 的 DeepSeek-chan VRM**（VRM 1.0，CC BY-NC-SA，非商用、需署名）；清单见 `docs/ASSETS.md` | 用户 |
+| 2026-11-09 | v2 换角色候选：AplayBox / Geffol 的 VRM 系列；先记档，v1 不换 | 用户 |
 
 ## 红线自查（每次 push 后打勾）
 
