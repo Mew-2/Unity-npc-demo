@@ -5,13 +5,14 @@ using UnityEngine;
 /// <summary>
 /// 逐条执行服务端返回的指令。
 /// 关键点：每条都要等它完成再执行下一条（否则 move + look_at 会叠在一起）。
-/// spawn / set 目前是占位，等 StateSwitcher / WispSpawner 接上再补。
+/// spawn 已延后（v1 不做灯灵），set 交给 StateSwitcher。
 /// </summary>
 public class CommandExecutor : MonoBehaviour
 {
     [Header("依赖")]
     public NpcAgent npc;
     public AnchorGraph graph;
+    public StateSwitcher state;
 
     public bool IsBusy { get; private set; }
 
@@ -55,13 +56,18 @@ public class CommandExecutor : MonoBehaviour
                     break;
 
                 case "set":
-                    // 占位：StateSwitcher 还没接
-                    Debug.Log($"[CommandExecutor] set {command.target}={command.state}（占位）");
+                    if (state == null)
+                    {
+                        Debug.LogWarning($"[CommandExecutor] 没有 StateSwitcher，set {command.target}={command.state} 被忽略");
+                        continue;
+                    }
+
+                    state.Apply(command.target, command.state);
                     break;
 
                 case "spawn":
-                    // 占位：WispSpawner 还没接
-                    Debug.Log($"[CommandExecutor] spawn at {command.anchor}（占位）");
+                    // v1 不做灯灵；schema 保留，等真需要时再接
+                    Debug.Log("[CommandExecutor] spawn 已延后（v1 不做灯灵）");
                     break;
 
                 default:

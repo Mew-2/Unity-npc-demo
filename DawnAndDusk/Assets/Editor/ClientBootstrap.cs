@@ -40,6 +40,15 @@ public static class ClientBootstrap
         executor.npc = npc;
         executor.graph = graph;
 
+        var switcher = go.GetComponent<StateSwitcher>();
+        if (switcher == null)
+        {
+            switcher = go.AddComponent<StateSwitcher>();
+        }
+        switcher.graph = graph;
+        switcher.npc = npc;
+        executor.state = switcher;
+
         var ui = go.GetComponent<DialogueUI>();
         if (ui == null)
         {

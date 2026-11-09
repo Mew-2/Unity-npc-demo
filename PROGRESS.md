@@ -124,6 +124,7 @@
 | 2026-11-05 | 角色按“可替换人格”设计（characters 配置），鲸鲸是彩蛋；多 NPC 争风吃醋进 v2 | 用户 |
 | 2026-11-09 | v1 角色资产定 **tegnike 的 DeepSeek-chan VRM**（VRM 1.0，CC BY-NC-SA，非商用、需署名）；清单见 `docs/ASSETS.md` | 用户 |
 | 2026-11-09 | v2 换角色候选：AplayBox / Geffol 的 VRM 系列；先记档，v1 不换 | 用户 |
+| 2026-11-09 | **`spawn` 延后**：灯灵“有点刻意”，v1 只用 move / look_at / set；schema 保留，提示词不再暴露，真需要时再接 | 用户 |
 
 ## 红线自查（每次 push 后打勾）
 

@@ -159,6 +159,25 @@ public class DialogueUI : MonoBehaviour
         _input = inputBg.gameObject.AddComponent<InputField>();
         _input.lineType = InputField.LineType.SingleLine;
         _input.contentType = InputField.ContentType.Standard;
+        _input.targetGraphic = inputBg.GetComponent<Image>();
+        _input.colors = new ColorBlock
+        {
+            normalColor = new Color(1f, 1f, 1f, 0.12f),
+            highlightedColor = new Color(0.45f, 0.65f, 0.95f, 0.42f),
+            pressedColor = new Color(0.35f, 0.55f, 0.9f, 0.52f),
+            selectedColor = new Color(0.45f, 0.65f, 0.95f, 0.42f),
+            disabledColor = new Color(1f, 1f, 1f, 0.05f),
+            colorMultiplier = 1f,
+            fadeDuration = 0.1f
+        };
+        _input.customCaretColor = true;
+        _input.caretColor = Color.white;
+        _input.caretWidth = 2;
+        _input.selectionColor = new Color(0.35f, 0.55f, 1f, 0.45f);
+
+        var focusOutline = inputBg.gameObject.AddComponent<Outline>();
+        focusOutline.effectColor = new Color(0.45f, 0.65f, 0.95f, 0.55f);
+        focusOutline.effectDistance = new Vector2(1f, -1f);
 
         var inputText = CreateText("Text", inputBg, 20, TextAnchor.MiddleLeft);
         SetAnchors(inputText.rectTransform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), new Vector2(-20, -8), new Vector2(12, 4));

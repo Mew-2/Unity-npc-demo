@@ -32,6 +32,17 @@
 | Meshy「deepseek chan」 | GLB（静态） | 无骨骼、无表情 |
 | MakerWorld 系列 | 3D 打印 | 不可绑定 |
 
+## 2D 素材图库
+
+| 图库 | 内容 | 授权 | 用途 |
+|---|---|---|---|
+| [DeepSeek 鲸鱼娘角色图集](https://iphsiibl.github.io/deepseek-whale-girl-gallery/#p-sheets) | **165 张 / 5 分区**：三视图设定、萌娘百科归档、7 套换装三视图、社区二创 147 张、壁纸 | **CC BY-NC-SA 4.0**（署名、禁商用、衍生同协议） | 角色参考、立绘、img2img / ControlNet 垫图、UI 素材 |
+
+- 上游资产库：[TreapGoGo/deepseek-whale-girl](https://github.com/TreapGoGo/deepseek-whale-girl)；每张图的作者与出处见其 `ATTRIBUTION.md`
+- 授权链：原型「溟月」上善无形 → 女仆版 ZipZipPipe → 社区二创
+- **只引用链接，不把图片提交进仓库**（版权 + 体积）
+- 适合：给 VRoid / Charakuru / 图像模型做角色一致性参考；做 UI 立绘时按 CC 要求署名
+
 ## 相关链接
 
 - [awesome-whale-girl](https://github.com/wytyKen/awesome-whale-girl)：鲸鱼娘资源总表
