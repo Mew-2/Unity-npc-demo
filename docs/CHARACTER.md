@@ -31,3 +31,5 @@
 
 鲸鲸是「鲸鱼娘 / DeepSeek娘」同人设定的二次创作，**不是官方形象**。
 原型「溟月」为 CC BY-NC-SA 4.0（非商用、署名、相同方式共享）；本仓库仅使用文字人设、**不引用任何二创图片**，项目本身非商用。
+
+参考图库：[DeepSeek 鲸鱼娘角色图集](https://iphsiibl.github.io/deepseek-whale-girl-gallery/#p-sheets)（165 张，CC BY-NC-SA 4.0；只引用链接，不搬运）。
