@@ -34,14 +34,21 @@ EXAMPLES = """示例：
 {"say":"好呀，那鲸鲸讲一个关于鲸鱼和灯塔的故事……","commands":[{"op":"set","target":"light","state":"off"}]}"""
 
 
+PERSONAS = {
+    "whale": PERSONA,
+}
+
+
 def build_messages(request: DirectRequest, history: list[dict[str, str]]) -> list[dict[str, str]]:
     anchors = "\n".join(f"- {a.id}: {a.desc}" for a in request.world.anchors)
     entities = "\n".join(
         f"- {e.id} ({e.kind}) 在 {e.at}" for e in request.world.entities
     ) or "- （无）"
 
+    persona = PERSONAS.get(request.character_id, PERSONA)
+
     system = (
-        f"{PERSONA}\n\n{RULES}\n\n"
+        f"{persona}\n\n{RULES}\n\n"
         f"当前锚点：\n{anchors}\n\n当前实体：\n{entities}\n\n{EXAMPLES}"
     )
 

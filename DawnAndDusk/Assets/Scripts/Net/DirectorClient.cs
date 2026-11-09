@@ -17,6 +17,9 @@ public class DirectorClient : MonoBehaviour
     [Header("依赖")]
     public AnchorGraph graph;
 
+    [Header("角色")]
+    public string characterId = "whale";
+
     [Serializable]
     public class AnchorDto
     {
@@ -43,6 +46,7 @@ public class DirectorClient : MonoBehaviour
     public class RequestDto
     {
         public string player_text;
+        public string character_id;
         public WorldDto world;
     }
 
@@ -85,7 +89,12 @@ public class DirectorClient : MonoBehaviour
         }
 
         var world = BuildWorld(npcAnchor);
-        var requestDto = new RequestDto { player_text = playerText, world = world };
+        var requestDto = new RequestDto
+        {
+            player_text = playerText,
+            character_id = characterId,
+            world = world
+        };
         var json = JsonUtility.ToJson(requestDto);
         var url = baseUrl.TrimEnd('/') + "/direct";
 

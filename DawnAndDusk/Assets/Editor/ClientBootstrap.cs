@@ -58,6 +58,14 @@ public static class ClientBootstrap
         ui.executor = executor;
         ui.npc = npc;
 
+        var switcher = go.GetComponent<CharacterSwitcher>();
+        if (switcher == null)
+        {
+            switcher = go.AddComponent<CharacterSwitcher>();
+        }
+        switcher.npc = npc;
+        switcher.client = client;
+
         Selection.activeGameObject = go;
         Debug.Log("[ClientBootstrap] 装配完成：DirectorClient + CommandExecutor + DialogueUI。");
     }

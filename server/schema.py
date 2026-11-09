@@ -21,6 +21,7 @@ class WorldSnapshot(BaseModel):
 
 class DirectRequest(BaseModel):
     player_text: str
+    character_id: str = "whale"
     world: WorldSnapshot
 
 
