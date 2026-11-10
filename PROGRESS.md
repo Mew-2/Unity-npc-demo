@@ -83,18 +83,24 @@
 - **2026-11-09** Unity 客户端三件套完成并**端到端跑通**：`DirectorClient`（POST `/direct`）+ `DialogueUI`（运行时 UI，中文用系统雅黑）+ `CommandExecutor`（顺序执行、等 `move` 到位）；`NpcAgent` 补 `TurnTo`。验证：输入「去窗边把窗帘拉开」→ 走到 window；再输入「我困了」→ 回 bed。`set` / `spawn` 仍为占位。VS Code 终端红字是 `Activate.ps1` 被 PowerShell 执行策略拦截，不影响（debugpy 直接用 venv python）。
 - **2026-11-09** 换角色接缝：`CharacterProfile`（id / personaId / Visual prefab / 身高 / 骨骼 / 表情映射）+ `CharacterSwitcher`（运行时换 Visual、改 `groundOffset`、通知服务端 `character_id`）；`/direct` 请求带 `character_id`，服务端 `PERSONAS` 字典（暂只有 whale）。`pytest 11 passed`。
 - **2026-11-09 收工**：`DeepSeek-chan.vrm` 下载完成（33,616,628 B）并入库，附 `CREDITS.md` 与 CC BY-NC-SA 4.0 说明；UniVRM **0.131.4** 的两个 `.unitypackage` 已下载到本机，**尚未导入 Unity**。`set`（灯/窗帘/换装）已落地；`spawn` 砍掉。
+- **2026-11-10** **VRM 正式接入**：UniVRM 0.131.4 以 embedded package 入库；模型蓝白材质正常、SpringBone 正常；`Visual Offset Y=-1` 贴地，`Npc` 初始 `Rotation Y=180` 正面朝玩家。
+  - 关键修复：**不要从场景实例另存 prefab**（会把 73 个材质覆盖成 None，模型变灰）；`CharacterProfile.visualPrefab` 直接指向 `.vrm` 资源。
+  - 表情不在 Inspector：用 Play + Scene 视图 Editor Tool `vrm-1.0/Expression` 预览。commit `20d66a5`。
+- **2026-11-10** 临时程序化姿势失败（手臂方向不可控、出现火影跑），删除 `NpcIdlePose`，恢复 T-pose 等正式动画。
+- **2026-11-10** 动画调研：Mixamo 偏欧美真人风格；改用免费 VRMA（だらてん走路/坐姿、手久野站立待机、VRoid 7 件套）。`ethereal Seated Idle` 虽赞高，但**禁止再配布、商用需授权**，不采用。
 
 ## 当前卡点
 
-- **VRM 未导入**：UniVRM 还没装，模型还不在场景里；表情/动画/物理都没验证。
-- M1 还差**验收录屏**（10 秒，bed→window）。
+- **动画未下载**：BOOTH 登录页慢，需要用户登录后下 だらてん 走路/坐姿 + 手久野 待机。
+- Animator Controller / `NpcAnimationDriver` / `ExpressionController` 未写，模型仍是 T-pose。
 - 玩家动作反应、膝枕、两幕切换未开始。
+- M1 还差**验收录屏**（10 秒，bed→window）。
 - 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
 
 ## 下一步
 
-1. 导入 UniVRM 0.131.4 → 拖入 `DeepSeek-chan.vrm`，验证材质 / 表情 / SpringBone
-2. 我写 `ExpressionController` + Animator（Idle/Walk/Sit）+ 一键装配 `CharacterProfile`
+1. 下载 3 个免费 VRMA（だらてん walk/sit、手久野 idle）放进 `Assets/Animations/`
+2. 我写 Animator Controller（Idle/Walk/Sit + `Speed` 参数）+ `NpcAnimationDriver` + `ExpressionController`
 3. 玩家动作反应（摸头 / 拍背 / 靠近）+ 膝枕
 4. M2 录屏（12-12）
 
@@ -126,6 +132,9 @@
 | 2026-11-09 | v1 角色资产定 **tegnike 的 DeepSeek-chan VRM**（VRM 1.0，CC BY-NC-SA，非商用、需署名）；清单见 `docs/ASSETS.md` | 用户 |
 | 2026-11-09 | v2 换角色候选：AplayBox / Geffol 的 VRM 系列；先记档，v1 不换 | 用户 |
 | 2026-11-09 | **`spawn` 延后**：灯灵“有点刻意”，v1 只用 move / look_at / set；schema 保留，提示词不再暴露，真需要时再接 | 用户 |
+| 2026-11-10 | 动画优先 **免费 VRMA**（二次元向）；Mixamo 仅作备选（风格偏欧美） | 用户 + 调研 |
+| 2026-11-10 | `ethereal Seated Idle` 虽高赞，但禁止再配布、商用需授权 → **不采用** | 授权检查 |
+| 2026-11-10 | VRM 直接引用 `.vrm` 资源，**不从场景实例另存 prefab**（会覆盖材质为 None） | 实测 bug |
 
 ## 红线自查（每次 push 后打勾）
 
