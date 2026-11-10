@@ -16,6 +16,7 @@ public class CharacterProfile
 
     [Header("外观")]
     public GameObject visualPrefab;
+    public Vector3 visualOffset = Vector3.zero;
     public float groundOffset = 1f;
 
     [Header("交互骨骼（摸头 / 拍背用，可留空）")]

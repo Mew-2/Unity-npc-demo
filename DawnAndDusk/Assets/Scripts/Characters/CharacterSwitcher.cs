@@ -83,7 +83,7 @@ public class CharacterSwitcher : MonoBehaviour
         {
             var visual = Instantiate(profile.visualPrefab, npc.transform);
             visual.name = "Visual";
-            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localPosition = profile.visualOffset;
             visual.transform.localRotation = Quaternion.identity;
             _visual = visual.transform;
         }
