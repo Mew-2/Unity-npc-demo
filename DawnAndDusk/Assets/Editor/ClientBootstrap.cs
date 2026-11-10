@@ -40,14 +40,14 @@ public static class ClientBootstrap
         executor.npc = npc;
         executor.graph = graph;
 
-        var switcher = go.GetComponent<StateSwitcher>();
-        if (switcher == null)
+        var stateSwitcher = go.GetComponent<StateSwitcher>();
+        if (stateSwitcher == null)
         {
-            switcher = go.AddComponent<StateSwitcher>();
+            stateSwitcher = go.AddComponent<StateSwitcher>();
         }
-        switcher.graph = graph;
-        switcher.npc = npc;
-        executor.state = switcher;
+        stateSwitcher.graph = graph;
+        stateSwitcher.npc = npc;
+        executor.state = stateSwitcher;
 
         var ui = go.GetComponent<DialogueUI>();
         if (ui == null)
@@ -58,13 +58,13 @@ public static class ClientBootstrap
         ui.executor = executor;
         ui.npc = npc;
 
-        var switcher = go.GetComponent<CharacterSwitcher>();
-        if (switcher == null)
+        var characterSwitcher = go.GetComponent<CharacterSwitcher>();
+        if (characterSwitcher == null)
         {
-            switcher = go.AddComponent<CharacterSwitcher>();
+            characterSwitcher = go.AddComponent<CharacterSwitcher>();
         }
-        switcher.npc = npc;
-        switcher.client = client;
+        characterSwitcher.npc = npc;
+        characterSwitcher.client = client;
 
         Selection.activeGameObject = go;
         Debug.Log("[ClientBootstrap] 装配完成：DirectorClient + CommandExecutor + DialogueUI。");
