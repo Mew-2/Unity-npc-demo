@@ -88,20 +88,23 @@
   - 表情不在 Inspector：用 Play + Scene 视图 Editor Tool `vrm-1.0/Expression` 预览。commit `20d66a5`。
 - **2026-11-10** 临时程序化姿势失败（手臂方向不可控、出现火影跑），删除 `NpcIdlePose`，恢复 T-pose 等正式动画。
 - **2026-11-10** 动画调研：Mixamo 偏欧美真人风格；改用免费 VRMA（だらてん走路/坐姿、手久野站立待机、VRoid 7 件套）。`ethereal Seated Idle` 虽赞高，但**禁止再配布、商用需授权**，不采用。
+- **2026-11-11** 试接 GitHub 上 CC-BY 的 `idle-maid / idle-sitting / grabbed`（desktop-homunculus）：能导入并播放，但 `idle-maid` 本身就是**坐姿/手前伸**，不是站立待机；且 Root Motion / 落地与 `Visual Offset` 叠加导致半截入土或浮空。结论：**动作不适配，回退 T-pose**。
+  - 清理：删除 `NpcAnimatorBuilder`、`NpcAnimator.controller`、自动落地协程；`CharacterSwitcher` 实例化时清空 Animator；场景 `Visual Offset` 恢复 `-1`。
+- **2026-11-11** 文本生成动作调研：NVIDIA **ARDY** 有 Replicate 封装 [`wanjon/ardy2vrm`](https://replicate.com/wanjon/ardy2vrm)，prompt → `.vrma`（avatar-independent，1–60s，仅身体）；按次计费、需绑卡，动作质量需抽卡。本地 `text-to-vrma` 需 NVIDIA GPU。**暂不走**，先找现成 VRMA。
+- **2026-11-11** README 增加“开发方式”：作者 + AI（DeepSeek，经 DSH）结对，模块归属指向 `docs/OWNERSHIP.md`。commit `bd363a3`。
 
 ## 当前卡点
 
-- **动画未下载**：BOOTH 登录页慢，需要用户登录后下 だらてん 走路/坐姿 + 手久野 待机。
-- Animator Controller / `NpcAnimationDriver` / `ExpressionController` 未写，模型仍是 T-pose。
-- 玩家动作反应、膝枕、两幕切换未开始。
+- **动画未定**：CC-BY 的 `idle-maid` 不适配，已回退 T-pose；等用户从模之屋动作区 / B 站配布找合适的待机+走路+坐姿。
+- `ExpressionController`、玩家动作反应、膝枕未写。
 - M1 还差**验收录屏**（10 秒，bed→window）。
 - 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
 
 ## 下一步
 
-1. 下载 3 个免费 VRMA（だらてん walk/sit、手久野 idle）放进 `Assets/Animations/`
-2. 我写 Animator Controller（Idle/Walk/Sit + `Speed` 参数）+ `NpcAnimationDriver` + `ExpressionController`
-3. 玩家动作反应（摸头 / 拍背 / 靠近）+ 膝枕
+1. 用户找 VRMA/FBX 动作（待机 / 走路 / 坐姿），确认授权与是否原地
+2. 找到后先在 Unity 里预览 Clip，确认姿势合适再接 Animator（不再盲挂）
+3. `ExpressionController` + 玩家动作反应（摸头/拍背/靠近）+ 膝枕
 4. M2 录屏（12-12）
 
 ## 决策记录
@@ -135,6 +138,8 @@
 | 2026-11-10 | 动画优先 **免费 VRMA**（二次元向）；Mixamo 仅作备选（风格偏欧美） | 用户 + 调研 |
 | 2026-11-10 | `ethereal Seated Idle` 虽高赞，但禁止再配布、商用需授权 → **不采用** | 授权检查 |
 | 2026-11-10 | VRM 直接引用 `.vrm` 资源，**不从场景实例另存 prefab**（会覆盖材质为 None） | 实测 bug |
+| 2026-11-11 | 暂停 AI 生成动作（Replicate ARDY 需绑卡、结果抽卡）；先找现成 VRMA | 成本/质量 |
+| 2026-11-11 | 暂不买 VPN：优先模之屋动作区、B 站配布、海外朋友代下 | 合规/成本 |
 
 ## 红线自查（每次 push 后打勾）
 
