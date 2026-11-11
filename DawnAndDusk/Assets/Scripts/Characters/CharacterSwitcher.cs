@@ -85,6 +85,15 @@ public class CharacterSwitcher : MonoBehaviour
             visual.name = "Visual";
             visual.transform.localPosition = profile.visualOffset;
             visual.transform.localRotation = Quaternion.identity;
+
+            var animator = visual.GetComponentInChildren<Animator>();
+            if (animator != null)
+            {
+                // 暂时不用动画：清空 controller，保持 T-pose，等找到合适动作再接
+                animator.runtimeAnimatorController = null;
+                animator.applyRootMotion = false;
+            }
+
             _visual = visual.transform;
         }
 
