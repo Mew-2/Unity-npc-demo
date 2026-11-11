@@ -12,6 +12,10 @@
 
 差异点：**不是对话树**——输入无界，动作用结构化指令驱动场景；录屏会演 5 个"查表做不到"的镜头（见 [SPEC §7](docs/SPEC.md)）。
 
+## 开发方式
+
+本项目由作者与 AI 编程助手（**DeepSeek**，经 DeepSeek Harness）结对完成：AI 负责初稿、脚本与排错，作者负责需求、验收、场景/锚点、调试现场与最终取舍。每个模块的归属、用户改动与 3 问自测记录见 [docs/OWNERSHIP.md](docs/OWNERSHIP.md)。
+
 ## 考纲对齐
 
 | JD 条目 | 对应实现 | 状态 |
@@ -36,7 +40,7 @@
 
 | 目录 | 内容 |
 |---|---|
-| `UnityProject/` | Unity 2022.3 LTS 工程（建设中） |
+| `DawnAndDusk/` | Unity 2022.3 LTS 工程（建设中） |
 | `server/` | FastAPI 编排服务（建设中） |
 | `docs/` | 规格与设计 |
 
