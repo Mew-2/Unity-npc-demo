@@ -92,20 +92,22 @@
   - 清理：删除 `NpcAnimatorBuilder`、`NpcAnimator.controller`、自动落地协程；`CharacterSwitcher` 实例化时清空 Animator；场景 `Visual Offset` 恢复 `-1`。
 - **2026-11-11** 文本生成动作调研：NVIDIA **ARDY** 有 Replicate 封装 [`wanjon/ardy2vrm`](https://replicate.com/wanjon/ardy2vrm)，prompt → `.vrma`（avatar-independent，1–60s，仅身体）；按次计费、需绑卡，动作质量需抽卡。本地 `text-to-vrma` 需 NVIDIA GPU。**暂不走**，先找现成 VRMA。
 - **2026-11-11** README 增加“开发方式”：作者 + AI（DeepSeek，经 DSH）结对，模块归属指向 `docs/OWNERSHIP.md`。commit `bd363a3`。
+- **2026-11-12** 清理动画实验：删除 `Assets/Animations`（3 个 CC-BY VRMA + GenericIdle controller + 署名）、`GenericIdleSetup`、`CharacterSwitcher` 的 Animator/自动落地逻辑；恢复 T-pose。**场景未动**。动作与场景等淘宝 FBX 到位后再接。
 
 ## 当前卡点
 
-- **动画未定**：CC-BY 的 `idle-maid` 不适配，已回退 T-pose；等用户从模之屋动作区 / B 站配布找合适的待机+走路+坐姿。
+- **动画等淘宝 FBX**（Humanoid）：到位前保持 T-pose，不再折腾 VRMA。
 - `ExpressionController`、玩家动作反应、膝枕未写。
 - M1 还差**验收录屏**（10 秒，bed→window）。
 - 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
 
 ## 下一步
 
-1. 用户找 VRMA/FBX 动作（待机 / 走路 / 坐姿），确认授权与是否原地
-2. 找到后先在 Unity 里预览 Clip，确认姿势合适再接 Animator（不再盲挂）
-3. `ExpressionController` + 玩家动作反应（摸头/拍背/靠近）+ 膝枕
-4. M2 录屏（12-12）
+1. `ExpressionController`（不依赖动画，先让 5 个表情可调）
+2. 玩家动作检测（摸头/拍背/靠近）+ 反应表
+3. 膝枕相机（PoseCamera）
+4. 淘宝 FBX 到位后接 Animator（待机/走路/坐姿）
+5. M2 录屏（12-12）
 
 ## 决策记录
 

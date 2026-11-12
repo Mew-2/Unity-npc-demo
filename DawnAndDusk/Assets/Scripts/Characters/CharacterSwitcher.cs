@@ -89,7 +89,7 @@ public class CharacterSwitcher : MonoBehaviour
             var animator = visual.GetComponentInChildren<Animator>();
             if (animator != null)
             {
-                // 暂时不用动画：清空 controller，保持 T-pose，等找到合适动作再接
+                // 动画等淘宝 FBX 到位再接；现在保持 T-pose
                 animator.runtimeAnimatorController = null;
                 animator.applyRootMotion = false;
             }
