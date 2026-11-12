@@ -100,6 +100,15 @@ public class DialogueUI : MonoBehaviour
         _busy = false;
     }
 
+    /// <summary>外部（反应系统/指令）直接显示一句鲸鲸的台词。</summary>
+    public void ShowLine(string text)
+    {
+        if (!string.IsNullOrEmpty(text))
+        {
+            Append("鲸鲸：" + text);
+        }
+    }
+
     void Append(string line)
     {
         var current = _output.text;

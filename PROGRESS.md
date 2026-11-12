@@ -94,6 +94,7 @@
 - **2026-11-11** README 增加“开发方式”：作者 + AI（DeepSeek，经 DSH）结对，模块归属指向 `docs/OWNERSHIP.md`。commit `bd363a3`。
 - **2026-11-12** 清理动画实验：删除 `Assets/Animations`（3 个 CC-BY VRMA + GenericIdle controller + 署名）、`GenericIdleSetup`、`CharacterSwitcher` 的 Animator/自动落地逻辑；恢复 T-pose。**场景未动**。动作与场景等淘宝 FBX 到位后再接。
 - **2026-11-12** `ExpressionController` 完成：封装 happy/angry/sad/relaxed/surprised/neutral，带淡入淡出；挂到 `Visual`，Play 中 **Shift + 1~5** 切换、`0` 清空。验证：近景可见表情变化，Console 打印 `表情 -> angry (1.00)`。
+- **2026-11-12** 玩家动作反应 + 近景锚点：`AnchorGraph` 运行时补 **`front`**（床前 2.8m，镜头前约 1.4m）；`PlayerActionDetector`（点击头/背/身体，背后角度判定）+ `ReactionController`（摸头 happy、拍背 surprised+转身、轻触 relaxed）；`DialogueUI.ShowLine`；离线台词「过来」「转过去」。验证：走到镜头前、转身背对、拍背触发惊讶+转身+台词。
 
 ## 当前卡点
 

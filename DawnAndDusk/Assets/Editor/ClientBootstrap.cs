@@ -66,7 +66,24 @@ public static class ClientBootstrap
         characterSwitcher.npc = npc;
         characterSwitcher.client = client;
 
+        var reactions = go.GetComponent<ReactionController>();
+        if (reactions == null)
+        {
+            reactions = go.AddComponent<ReactionController>();
+        }
+        reactions.npc = npc;
+        reactions.dialogue = ui;
+
+        var detector = go.GetComponent<PlayerActionDetector>();
+        if (detector == null)
+        {
+            detector = go.AddComponent<PlayerActionDetector>();
+        }
+        detector.playerCamera = Camera.main;
+        detector.npc = npc;
+        detector.reactions = reactions;
+
         Selection.activeGameObject = go;
-        Debug.Log("[ClientBootstrap] 装配完成：DirectorClient + CommandExecutor + DialogueUI。");
+        Debug.Log("[ClientBootstrap] 装配完成：DirectorClient + CommandExecutor + DialogueUI + 反应系统。");
     }
 }

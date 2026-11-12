@@ -14,6 +14,7 @@
 | `server/`（app / validator / prompt / llm / offline） | AI | 指定“离线优先” | `/health`、`/direct` 正常；pytest 11 passed | 待问 |
 | `DirectorClient` / `DialogueUI` / `CommandExecutor` | AI | 无 | 端到端：输入 → `/direct` → `move` / `look_at` 生效 | 待问 |
 | `ExpressionController` | AI | 无 | Play 中 Shift+1~5 切换表情；近景可见 | 待问 |
+| `PlayerActionDetector` / `ReactionController` | AI | 无 | 摸头 / 拍背 / 轻触触发表情、台词、转身 | 待问 |
 
 ## 2026-11-06 自测结果
 

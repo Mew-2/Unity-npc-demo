@@ -1258,7 +1258,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   npc: {fileID: 1764205650}
   client: {fileID: 1780739613}
-  animatorController: {fileID: 9100000, guid: 02e5130ac60228245a5c44ec0f8155ae, type: 2}
+  animatorController: {fileID: 9100000, guid: d3774c62dd8d098498dcf9d50d98aad8, type: 2}
   profiles:
   - id: whale
     displayName: "\u9CB8\u9CB8"

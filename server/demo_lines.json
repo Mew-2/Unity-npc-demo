@@ -52,6 +52,25 @@
           { "op": "set", "target": "curtain", "state": "open" }
         ]
       }
+    },
+    {
+      "player_text": "过来",
+      "response": {
+        "say": "……过来就过来。",
+        "commands": [
+          { "op": "move", "entity": "npc", "anchor": "front" },
+          { "op": "look_at", "entity": "npc", "target": "player" }
+        ]
+      }
+    },
+    {
+      "player_text": "转过去",
+      "response": {
+        "say": "……干嘛啦。",
+        "commands": [
+          { "op": "look_at", "entity": "npc", "target": "bed" }
+        ]
+      }
     }
   ]
 }

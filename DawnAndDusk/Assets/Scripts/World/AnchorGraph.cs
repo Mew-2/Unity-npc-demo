@@ -40,6 +40,8 @@ public class AnchorGraph : MonoBehaviour
         _byId.Clear();
         _neighbours.Clear();
 
+        EnsureFrontAnchor();
+
         foreach (var anchor in anchors)
         {
             if (anchor == null || string.IsNullOrEmpty(anchor.id))
@@ -99,6 +101,38 @@ public class AnchorGraph : MonoBehaviour
                 AddNeighbour(ids[i], ids[j]);
             }
         }
+    }
+
+    /// <summary>
+    /// 运行时补一个“身前”锚点，让 NPC 能走到镜头前，方便近景对话/表情。
+    /// 不动场景文件；每次 Build 幂等。
+    /// </summary>
+    void EnsureFrontAnchor()
+    {
+        foreach (var anchor in anchors)
+        {
+            if (anchor != null && anchor.id == "front")
+            {
+                return;
+            }
+        }
+
+        var bed = anchors.Find(a => a != null && a.id == "bed");
+        var position = bed != null
+            ? bed.transform.position + new Vector3(0f, 0f, -2.8f)
+            : new Vector3(0f, 0f, -0.8f);
+
+        var go = new GameObject("Anchor_front");
+        go.transform.SetParent(transform, false);
+        go.transform.position = position;
+
+        var front = go.AddComponent<Anchor>();
+        front.id = "front";
+        front.displayName = "身前";
+        front.description = "玩家面前，近距离说话的位置";
+
+        anchors.Add(front);
+        Debug.Log($"[AnchorGraph] 自动添加 front 锚点 @ {position}");
     }
 
     void AddNeighbour(string a, string b)
