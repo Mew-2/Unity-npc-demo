@@ -94,6 +94,7 @@ public class CharacterSwitcher : MonoBehaviour
                 animator.applyRootMotion = false;
             }
 
+            visual.AddComponent<ExpressionController>();
             _visual = visual.transform;
         }
 
