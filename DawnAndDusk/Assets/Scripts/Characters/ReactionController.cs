@@ -23,6 +23,7 @@ public class ReactionController : MonoBehaviour
         }
 
         _nextTime = Time.time + cooldown;
+        Debug.Log($"[Reaction] {kind} dialogue={(dialogue != null)}");
 
         var expression = npc != null ? npc.GetComponentInChildren<ExpressionController>() : null;
 

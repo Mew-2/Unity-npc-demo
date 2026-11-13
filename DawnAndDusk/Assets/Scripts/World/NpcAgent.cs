@@ -32,6 +32,7 @@ public class NpcAgent : MonoBehaviour
     public bool IsMoving { get; private set; }
 
     Coroutine _moveRoutine;
+    NpcAnimationDriver _animationDriver;
 
     void Awake()
     {
@@ -142,6 +143,22 @@ public class NpcAgent : MonoBehaviour
             if (!target.HasValue)
             {
                 continue;
+            }
+
+            // 拐点：下一段方向与当前朝向夹角较大时，播 Pivot（脚步倒重心）
+            var segment = target.Value - transform.position;
+            segment.y = 0f;
+            if (segment.sqrMagnitude > 0.0001f && Vector3.Angle(transform.forward, segment.normalized) > 45f)
+            {
+                if (_animationDriver == null)
+                {
+                    _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
+                }
+
+                if (_animationDriver != null)
+                {
+                    _animationDriver.PlayPivot();
+                }
             }
 
             while (Vector3.Distance(transform.position, target.Value) > arriveDistance)

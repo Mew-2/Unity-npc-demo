@@ -95,12 +95,22 @@
 - **2026-11-12** 清理动画实验：删除 `Assets/Animations`（3 个 CC-BY VRMA + GenericIdle controller + 署名）、`GenericIdleSetup`、`CharacterSwitcher` 的 Animator/自动落地逻辑；恢复 T-pose。**场景未动**。动作与场景等淘宝 FBX 到位后再接。
 - **2026-11-12** `ExpressionController` 完成：封装 happy/angry/sad/relaxed/surprised/neutral，带淡入淡出；挂到 `Visual`，Play 中 **Shift + 1~5** 切换、`0` 清空。验证：近景可见表情变化，Console 打印 `表情 -> angry (1.00)`。
 - **2026-11-12** 玩家动作反应 + 近景锚点：`AnchorGraph` 运行时补 **`front`**（床前 2.8m，镜头前约 1.4m）；`PlayerActionDetector`（点击头/背/身体，背后角度判定）+ `ReactionController`（摸头 happy、拍背 surprised+转身、轻触 relaxed）；`DialogueUI.ShowLine`；离线台词「过来」「转过去」。验证：走到镜头前、转身背对、拍背触发惊讶+转身+台词。
+- **2026-11-13** 服务端结构化日志：`logging_config.py`（structlog + JSONL `logs/turns.jsonl` + 控制台）；`/direct` 中间件绑定 `trace_id` 并回写 `X-Trace-Id`；每轮记录 `player_text / character_id / say / commands / prompt / raw_response / valid / errors / latency_ms / model`。验证：HTTP 200、响应头可取、日志 UTF-8 正确、`pytest 11 passed`。
 
 ## 当前卡点
 
-- **动画等淘宝 FBX**（Humanoid）：到位前保持 T-pose，不再折腾 VRMA。
-- `ExpressionController`、玩家动作反应、膝枕未写。
+- **Kawaii 动画待验证**：Walk01 的 Start/Loop/Stop 与 Pivot 已接进 builder，但还没跑通确认。
+- **客户端可观测性**：只有 Console，没有 JSONL；互动对话丢失、转身后呼吸停还没定位。
+- 膝枕相机、两幕状态未做。
 - M1 还差**验收录屏**（10 秒，bed→window）。
+- 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
+
+## 下一步
+
+1. 跑 `Build Kawaii Animator`，验证 Walk01 Start/Loop/Stop + Pivot
+2. 加 Unity `GameLog`（收到 say/commands、显示、Animator 状态），定位两个 bug
+3. 膝枕相机（PoseCamera）
+4. 淘宝 FBX 补齐动作；M2 录屏（12-12）
 - 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
 
 ## 下一步

@@ -5,7 +5,7 @@ GET  /health  -> {ok, offline, model}
 
 - 有 LLM_API_KEY 走模型；没有（或 OFFLINE=1）走 demo_lines.json 回放
 - 服务端做结构 + 语义校验；不合法整批丢弃
-- 每轮写 logs/turns.jsonl，方便复盘
+- 每轮写 logs/turns.jsonl（structlog JSONL，带 trace_id）
 """
 
 from __future__ import annotations
@@ -14,22 +14,21 @@ import json
 import os
 import time
 from collections import deque
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, cast
+from uuid import uuid4
 
+import structlog
 from fastapi import FastAPI
 
 import llm
 import offline
+from logging_config import get_logger
 from prompt import build_messages
 from schema import DirectRequest, DirectResponse
 from validator import validate_commands
 
 app = FastAPI(title="DawnAndDusk Director", version="0.1.0")
-
-LOG_DIR = Path(__file__).with_name("logs")
-LOG_FILE = LOG_DIR / "turns.jsonl"
+logger = get_logger()
 
 # 最近 10 轮上下文（user / assistant 交替），进程重启清空
 _history: deque[dict[str, str]] = deque(maxlen=10)
@@ -41,11 +40,19 @@ def _is_offline() -> bool:
     return os.environ.get("OFFLINE") == "1" or not llm.is_configured()
 
 
-def _log_turn(payload: dict) -> None:
-    LOG_DIR.mkdir(exist_ok=True)
-    payload["ts"] = datetime.now(timezone.utc).isoformat()
-    with LOG_FILE.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+@app.middleware("http")
+async def trace_middleware(request, call_next):
+    """给每次请求绑定 trace_id，客户端可通过响应头 X-Trace-Id 取回。"""
+    trace_id = request.headers.get("X-Trace-Id") or uuid4().hex[:12]
+    structlog.contextvars.bind_contextvars(trace_id=trace_id)
+
+    try:
+        response = await call_next(request)
+    finally:
+        structlog.contextvars.clear_contextvars()
+
+    response.headers["X-Trace-Id"] = trace_id
+    return response
 
 
 @app.get("/health")
@@ -58,23 +65,27 @@ def health() -> dict:
 async def direct(request: DirectRequest) -> DirectResponse:
     started = time.perf_counter()
     offline_mode = _is_offline()
+    prompt = ""
+    raw_response = ""
 
     if offline_mode:
         data = offline.offline_response(request.player_text)
+        raw_response = json.dumps(data, ensure_ascii=False)
     else:
         messages = build_messages(request, list(_history))
+        prompt = json.dumps(messages, ensure_ascii=False)
+
         try:
             data = await llm.call_llm(messages)
+            raw_response = json.dumps(data, ensure_ascii=False)
         except llm.LLMError as exc:
-            _log_turn(
-                {
-                    "player_text": request.player_text,
-                    "offline": False,
-                    "llm_error": str(exc),
-                    "say": "",
-                    "commands": [],
-                    "valid": False,
-                }
+            logger.error(
+                "llm_error",
+                player_text=request.player_text,
+                character_id=request.character_id,
+                offline=False,
+                error=str(exc),
+                latency_ms=round((time.perf_counter() - started) * 1000),
             )
             return DirectResponse(say=offline.FALLBACK["say"], commands=[])
 
@@ -88,17 +99,21 @@ async def direct(request: DirectRequest) -> DirectResponse:
 
     errors = validate_commands(commands, request.world)
     elapsed_ms = round((time.perf_counter() - started) * 1000)
+    _, _, model, _ = llm.llm_config()
 
-    _log_turn(
-        {
-            "player_text": request.player_text,
-            "offline": offline_mode,
-            "say": say,
-            "commands": commands,
-            "valid": not errors,
-            "errors": errors,
-            "elapsed_ms": elapsed_ms,
-        }
+    logger.info(
+        "turn",
+        player_text=request.player_text,
+        character_id=request.character_id,
+        offline=offline_mode,
+        model=model,
+        say=say,
+        commands=commands,
+        prompt=prompt,
+        raw_response=raw_response,
+        valid=not errors,
+        errors=errors,
+        latency_ms=elapsed_ms,
     )
 
     if errors:

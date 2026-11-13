@@ -20,7 +20,23 @@ def load_lines() -> list[dict]:
 
 
 def offline_response(player_text: str) -> dict:
-    for item in load_lines():
+    lines = load_lines()
+
+    # 1) 精确匹配
+    for item in lines:
         if item.get("player_text") == player_text:
             return item.get("response", FALLBACK)
+
+    # 2) 包含匹配：取最长的候选，避免“去窗边”落到兜底
+    text = player_text.strip()
+    candidates = [
+        item
+        for item in lines
+        if item.get("player_text")
+        and (item["player_text"] in text or text in item["player_text"])
+    ]
+    if candidates:
+        best = max(candidates, key=lambda item: len(item["player_text"]))
+        return best.get("response", FALLBACK)
+
     return FALLBACK

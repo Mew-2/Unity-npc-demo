@@ -89,9 +89,16 @@ public class CharacterSwitcher : MonoBehaviour
             var animator = visual.GetComponentInChildren<Animator>();
             if (animator != null)
             {
-                // 动画等淘宝 FBX 到位再接；现在保持 T-pose
-                animator.runtimeAnimatorController = null;
+                // 公开仓库不带授权动画：找不到 controller 就回退 T-pose
+                var controller = Resources.Load<RuntimeAnimatorController>("KawaiiAnimator");
+                animator.runtimeAnimatorController = controller;
                 animator.applyRootMotion = false;
+
+                if (controller != null)
+                {
+                    var driver = visual.AddComponent<NpcAnimationDriver>();
+                    driver.npc = npc;
+                }
             }
 
             visual.AddComponent<ExpressionController>();

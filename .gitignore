@@ -47,6 +47,10 @@ server/.venv/
 server/logs/
 server/_libs/
 .tmp/
+
+# ---- 本地测试资产（淘宝/授权不明，不入库） ----
+DawnAndDusk/Assets/_LocalTest/
+DawnAndDusk/Assets/_LocalTest.meta
 __pycache__/
 *.pyc
 .pytest_cache/

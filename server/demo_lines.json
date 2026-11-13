@@ -71,6 +71,36 @@
           { "op": "look_at", "entity": "npc", "target": "bed" }
         ]
       }
+    },
+    {
+      "player_text": "去窗边",
+      "response": {
+        "say": "窗边？……好。",
+        "commands": [
+          { "op": "move", "entity": "npc", "anchor": "window" },
+          { "op": "look_at", "entity": "npc", "target": "player" }
+        ]
+      }
+    },
+    {
+      "player_text": "去床边",
+      "response": {
+        "say": "床边就床边。",
+        "commands": [
+          { "op": "move", "entity": "npc", "anchor": "bed" },
+          { "op": "look_at", "entity": "npc", "target": "player" }
+        ]
+      }
+    },
+    {
+      "player_text": "走到门口",
+      "response": {
+        "say": "门口……有人来了吗？",
+        "commands": [
+          { "op": "move", "entity": "npc", "anchor": "door" },
+          { "op": "look_at", "entity": "npc", "target": "player" }
+        ]
+      }
     }
   ]
 }
