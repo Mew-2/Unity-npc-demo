@@ -96,6 +96,7 @@
 - **2026-11-12** `ExpressionController` 完成：封装 happy/angry/sad/relaxed/surprised/neutral，带淡入淡出；挂到 `Visual`，Play 中 **Shift + 1~5** 切换、`0` 清空。验证：近景可见表情变化，Console 打印 `表情 -> angry (1.00)`。
 - **2026-11-12** 玩家动作反应 + 近景锚点：`AnchorGraph` 运行时补 **`front`**（床前 2.8m，镜头前约 1.4m）；`PlayerActionDetector`（点击头/背/身体，背后角度判定）+ `ReactionController`（摸头 happy、拍背 surprised+转身、轻触 relaxed）；`DialogueUI.ShowLine`；离线台词「过来」「转过去」。验证：走到镜头前、转身背对、拍背触发惊讶+转身+台词。
 - **2026-11-13** 服务端结构化日志：`logging_config.py`（structlog + JSONL `logs/turns.jsonl` + 控制台）；`/direct` 中间件绑定 `trace_id` 并回写 `X-Trace-Id`；每轮记录 `player_text / character_id / say / commands / prompt / raw_response / valid / errors / latency_ms / model`。验证：HTTP 200、响应头可取、日志 UTF-8 正确、`pytest 11 passed`。
+- **2026-11-13 收工**：交接文档 `docs/HANDOFF.md` 更新为“换机器/出租屋”清单（只带 unitypackage 时重抽的 8 个 FBX、环境、步骤）；公开仓库仍不含授权动画，clone 回退 T-pose。
 
 ## 当前卡点
 
