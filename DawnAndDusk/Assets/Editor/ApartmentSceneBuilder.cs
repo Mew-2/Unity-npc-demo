@@ -18,10 +18,14 @@ public static class ApartmentSceneBuilder
     const string VrmPath = "Assets/Characters/DeepSeekChan/DeepSeek-chan.vrm";
     static readonly string OutDir = Path.Combine(Application.dataPath, "../dsh-apartment-shots");
 
-    // 玩家开局躺在床上（相机 1.02m，前景是自己的被子），按移动键起身到床尾空地
-    static readonly Vector3 PlayerPos = new Vector3(3.30f, 0.05f, 1.30f);
-    static readonly Vector3 PlayerEuler = new Vector3(-2f, 0f, 0f);
+    // 玩家开局躺在床上（相机 1.00m），按移动键起身到床尾空地
+    static readonly Vector3 PlayerPos = new Vector3(3.45f, 0.05f, 2.05f);
+    static readonly Vector3 PlayerEuler = new Vector3(-1f, 0f, 0f);
     static readonly Vector3 StandUpPos = new Vector3(3.30f, 0.05f, 0.50f);
+
+    /// <summary>目标身高（米）：玩家 175cm → 站立视线 163cm；鲸鲸 162cm。</summary>
+    const float PlayerEyeHeight = 1.63f;
+    const float NpcHeight = 1.62f;
 
     struct AnchorSpec
     {
@@ -33,22 +37,82 @@ public static class ApartmentSceneBuilder
 
     static readonly AnchorSpec[] Specs =
     {
-        new AnchorSpec { id = "front",  name = "床边",   desc = "你身边的床边位置，近距离说话用", pos = new Vector3(2.05f, 0f, 1.35f) },
-        new AnchorSpec { id = "bed",    name = "床尾",   desc = "铺着灰色被子的双人床",           pos = new Vector3(2.05f, 0f, 2.30f) },
-        new AnchorSpec { id = "desk",   name = "书桌边", desc = "靠西墙的书桌和一排书",           pos = new Vector3(2.05f, 0f, 2.95f) },
-        new AnchorSpec { id = "window", name = "窗边",   desc = "北面整墙的落地窗，挂着深色窗帘", pos = new Vector3(3.65f, 0f, 3.55f) },
-        new AnchorSpec { id = "door",   name = "门口",   desc = "通往走廊的门",                   pos = new Vector3(2.30f, 0f, 0.55f) },
+    // 锚点全部放在"窗带"（床北侧 z≈3.2~3.5 的那条带，宽约 0.5m、长 2m）——
+    // 绕床走位在物理上不成立（家具比房间还宽），所以改用"她本来就在窗前"的设定
+        new AnchorSpec { id = "front",  name = "床头边", desc = "你头侧的床沿，贴身说话的位置",   pos = new Vector3(3.30f, 0f, 3.22f) },
+        new AnchorSpec { id = "bed",    name = "床沿",   desc = "床北侧，靠窗的床沿",             pos = new Vector3(2.55f, 0f, 3.30f) },
+        new AnchorSpec { id = "desk",   name = "书桌边", desc = "靠西墙的书桌",                   pos = new Vector3(2.10f, 0f, 3.62f) },
+        new AnchorSpec { id = "window", name = "窗中",   desc = "落地窗正前方",                   pos = new Vector3(3.60f, 0f, 3.45f) },
+        new AnchorSpec { id = "door",   name = "窗带东端", desc = "窗带东侧，靠近门口方向",       pos = new Vector3(4.40f, 0f, 3.40f) },
     };
 
     static readonly (string a, string b)[] Edges =
     {
-        ("door", "front"), ("front", "bed"), ("bed", "desk"), ("desk", "window"),
+        ("desk", "bed"), ("bed", "front"), ("front", "window"), ("window", "door"),
     };
+
+    /// <summary>
+    /// 把主卧里挡路的物件"摆回去"，而不是删掉：
+    ///   椅子 → 收进桌下；竹篮 → 也收到桌下；掉在地上的靠垫 → 放回床上。
+    /// 只动位置，不动原资源；场景重新生成时会重复执行，所以每步都按"目标点"而不是"相对偏移"。
+    /// </summary>
+    static void ArrangeBedroomProps()
+    {
+        var moved = 0;
+
+        // 只做"把掉在地上的靠垫放回床上"这一处清理；书桌/椅子/竹篮保持原样
+        // （房间净宽 3.52m，书桌+床+床头柜合计 3.56m，挪动换不出通道，挪了反而更怪）
+        var plan = new (string prefix, Vector3 target, float yaw)[]
+        {
+            ("Bed_Bedroom_Pillow6", new Vector3(3.10f, 0.42f, 1.60f), 0f),
+            ("Bed_Bedroom_Pillow7", new Vector3(3.30f, 0.42f, 1.45f), 0f),
+        };
+
+        foreach (var (prefix, target, yaw) in plan)
+        {
+            foreach (var t in Object.FindObjectsOfType<Transform>())
+            {
+                if (!t.gameObject.activeInHierarchy || !InBedroom(t))
+                {
+                    continue;
+                }
+
+                if (!t.name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                t.position = target;
+                t.rotation = Quaternion.Euler(0f, yaw, 0f);
+                moved++;
+            }
+        }
+
+        Debug.Log($"[Apartment] 主卧物件归位：{moved} 个");
+    }
+
+    /// <summary>向上三层查父级名字里有没有 BEDROOM（家具的层级是 ..._LOD &lt; BEDROOM）。</summary>
+    static bool InBedroom(Transform t)
+    {
+        for (var i = 0; i < 4 && t != null; i++)
+        {
+            if (t.name.IndexOf("BEDROOM", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            t = t.parent;
+        }
+
+        return false;
+    }
 
     [MenuItem("Tools/DawnAndDusk/Build Apartment Demo")]
     public static void Build()
     {
         var scene = EditorSceneManager.OpenScene(SourceScene, OpenSceneMode.Single);
+
+        ArrangeBedroomProps();
 
         // 0) 压掉后处理里过强的色散（录屏时边缘会发彩虹边）
         foreach (var volume in Object.FindObjectsOfType<UnityEngine.Rendering.Volume>())
@@ -93,8 +157,8 @@ public static class ApartmentSceneBuilder
         controller.skinWidth = 0.02f;
 
         camera.transform.SetParent(playerGo.transform, false);
-        camera.transform.localPosition = new Vector3(0f, 1.02f, 0f);
-        camera.transform.localRotation = Quaternion.Euler(-2f, 0f, 0f);
+        camera.transform.localPosition = new Vector3(0f, 1.00f, 0f);
+        camera.transform.localRotation = Quaternion.Euler(-1f, 0f, 0f);
         camera.nearClipPlane = 0.05f;
         camera.farClipPlane = 60f;
         camera.tag = "MainCamera";
@@ -105,8 +169,8 @@ public static class ApartmentSceneBuilder
         var player = playerGo.AddComponent<PlayerController>();
         player.cameraTransform = camera.transform;
         player.startSeated = true;
-        player.seatedHeight = 1.02f;
-        player.standingHeight = 1.58f;
+        player.seatedHeight = 1.00f;
+        player.standingHeight = PlayerEyeHeight;
         player.standUpPosition = StandUpPos;
 
         // 2) 玩法根
@@ -161,10 +225,55 @@ public static class ApartmentSceneBuilder
             }
         }
 
+        // 连线净空检查：走过椅子/桌子/床会表现为"卡一下然后穿过去"
+        var furniture = Object.FindObjectsOfType<Renderer>()
+            .Where(r =>
+            {
+                var s = r.bounds.size;
+                return Mathf.Max(s.x, s.z) < 3f && s.y > 0.15f && r.bounds.min.y < 1.5f && r.bounds.max.y > 0.15f;
+            })
+            .ToArray();
+
+        foreach (var edge in Edges)
+        {
+            var from = Specs.First(s => s.id == edge.a).pos;
+            var to = Specs.First(s => s.id == edge.b).pos;
+            var steps = Mathf.CeilToInt(Vector3.Distance(from, to) / 0.15f);
+            string blocker = null;
+
+            for (var i = 1; i < steps; i++)
+            {
+                var p = Vector3.Lerp(from, to, i / (float)steps);
+                var probe = new Vector3(p.x, 0.55f, p.z);
+                foreach (var r in furniture)
+                {
+                    if (r.bounds.Contains(probe))
+                    {
+                        blocker = r.name;
+                        break;
+                    }
+                }
+
+                if (blocker != null)
+                {
+                    break;
+                }
+            }
+
+            if (blocker != null)
+            {
+                Debug.LogWarning($"[Apartment] 连线 {edge.a} -> {edge.b} 穿过 '{blocker}'（会被挡/穿模）");
+            }
+            else
+            {
+                Debug.Log($"[Apartment] 连线 {edge.a} -> {edge.b} 净空 OK");
+            }
+        }
+
         // 3) NPC
         var npcGo = new GameObject("Npc");
         npcGo.transform.SetParent(root.transform, false);
-        npcGo.transform.position = new Vector3(2.20f, 1f, 1.70f);
+        npcGo.transform.position = new Vector3(2.55f, 1f, 3.30f);
         var npc = npcGo.AddComponent<NpcAgent>();
         npc.graph = graph;
         npc.moveSpeed = 1.03f;
@@ -172,6 +281,14 @@ public static class ApartmentSceneBuilder
         npc.decelTime = 0.3f;
         npc.groundOffset = 1f;
         npc.autoPivot = false;
+
+        // 点击判定需要 collider（PlayerActionDetector 靠 Raycast 命中她）；
+        // Npc 根在 y=1，脚底在 y=0，所以胶囊中心要下移 1m 再取一半身高
+        var npcCollider = npcGo.AddComponent<CapsuleCollider>();
+        npcCollider.center = new Vector3(0f, -0.19f, 0f);
+        npcCollider.height = 1.62f;
+        npcCollider.radius = 0.22f;
+        npcCollider.direction = 1;
 
         // 4) Director
         var directorGo = new GameObject("Director");
@@ -200,6 +317,28 @@ public static class ApartmentSceneBuilder
         switcher.client = client;
 
         var vrm = AssetDatabase.LoadAssetAtPath<GameObject>(VrmPath);
+        var npcScale = 1f;
+        if (vrm != null)
+        {
+            // 按模型真实高度换算缩放，目标 162cm
+            var probe = Object.Instantiate(vrm);
+            var renderers = probe.GetComponentsInChildren<Renderer>();
+            if (renderers.Length > 0)
+            {
+                var b = renderers[0].bounds;
+                foreach (var r in renderers)
+                {
+                    b.Encapsulate(r.bounds);
+                }
+
+                var rawHeight = b.size.y;
+                npcScale = rawHeight > 0.1f ? NpcHeight / rawHeight : 1f;
+                Debug.Log($"[Apartment] VRM 原始高度 {rawHeight:F2}m → 缩放 {npcScale:F3}（目标 {NpcHeight:F2}m）");
+            }
+
+            Object.DestroyImmediate(probe);
+        }
+
         switcher.profiles = new List<CharacterProfile>
         {
             new CharacterProfile
@@ -209,7 +348,7 @@ public static class ApartmentSceneBuilder
                 personaId = "whale",
                 visualPrefab = vrm,
                 visualOffset = new Vector3(0f, -1f, 0f),
-                visualScale = 0.82f,
+                visualScale = npcScale,
                 groundOffset = 1f,
                 headBone = "J_Bip_C_Head",
                 backBone = "J_Bip_C_Spine",
