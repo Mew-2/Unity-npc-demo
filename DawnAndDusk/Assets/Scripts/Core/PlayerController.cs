@@ -81,7 +81,10 @@ public class PlayerController : MonoBehaviour
             "dDoor", DistanceTo("Anchor_door"),
             "dChair", DistanceTo("Chair_Norraryd"),
             "dWindow", DistanceTo("Anchor_window"),
-            "front", front);
+            "front", front,
+            "camLocal", $"{cam.localPosition.x:F2},{cam.localPosition.y:F2},{cam.localPosition.z:F2}",
+            "camParent", cam.parent != null ? cam.parent.name : "-",
+            "playerYaw", GameLog.F(transform.eulerAngles.y));
     }
 
     void Update()
