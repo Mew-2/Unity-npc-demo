@@ -139,6 +139,12 @@
   - 第二个根因（同一晚从日志里挖出来的）：`AnimatorStateTransition.duration` 在 `hasFixedDuration=false`（默认）时按**归一化时间**解释。`Idle→WalkStart` 写的是 0.1，实测混了约 **0.6 秒**，长到把 `WalkStart→Walk` 的退出时间点（0.8）整个跨过去——进场时 `nt=0.829`，exit time 再也不会被"穿过"，起步片段一路播到末帧才切 Walk。修：给所有过渡统一 `hasFixedDuration = true`，让 `duration` 就是秒。
   - 由此得到一条通用结论：**根位移消失前先看 `nt` 是否已经越过片段长度**。`nt>1 且长度没变`= 片段播完钳在末帧，不是动画系统坏了。
 
+- **2026-11-15 参数清理：只保留 root motion 一条主路径**
+  - 删死代码：`SpeedNormalized`（0 处读取）、`BrakeRatio`、`_brakeDistance` / `_brakeRatio`（刹车删除后恒 1）
+  - 魔法数字提成字段：`snapDistance=0.35`（吸附）、`reachedTolerance=0.4`（到达判定）、`segmentTimeout=12`（单段超时）
+  - `moveSpeed` / `strideScale` / `accelTime` / `decelTime` 归入「回退模式（没有 controller 时自动启用）」；`strideScale` 的 Tooltip 明确写「root motion 下无效，真正缩放根位移的是 Visual 上 `RootMotionRelay.scale`」
+  - 分流改成自动：没有 Animator Controller（公开仓库 clone 没有授权资产）时自动走代码驱动并记 `walk_fallback`；之前 useRootMotion=true 又没 controller 时会原地站满 12 秒再报超时
+  - `probeStallRecovery` 默认关闭：根因（loopTime / CrossFade 归一化时长）已修，探针只在排查时手动开
 ## 当前卡点
 
 - **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟。已用空场景 bisect 验证**与 VRM 无关**（空场景进 Play 再退同样卡），是这台机器/这个版本 Unity 的退出行为，先用任务管理器结束，低优先级。

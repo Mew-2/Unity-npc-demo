@@ -89,10 +89,9 @@ public class NpcAnimationDriver : MonoBehaviour
         var normalized = Mathf.Repeat(state.normalizedTime, 1f);
         _speedScale = profile != null ? profile.Scale(CurrentStateName, normalized) : 1f;
 
-        // 播放速率只跟"刹车"走。不要用 body/expected 反推——那会和状态机形成死锁：
-        // 速率低 → 进 WalkStop → 片段步速归零 → 身体掉到保底速度 → 速率更低（实测卡在 0.08 m/s）
-        // 下限从 0.15 提到 0.6：0.15 会让最后 10cm 爬 0.6 秒，看着像子弹时间
-        SpeedRatio = npc.IsBraking ? Mathf.Lerp(0.6f, 1f, npc.BrakeRatio) : 1f;
+        // 播放速率恒为 1：root motion 模式下减速由 WalkStop 片段自己完成，
+        // 再叠一层时间缩放就是双重减速（实测 decelTime 置 0/1 观感无差别，已删）。
+        SpeedRatio = 1f;
 
         // Speed 参数表示"移动意图"：状态机靠它决定进/出走路，不再和实际速度互相依赖
         var target = npc.IsMoving ? 1f : 0f;

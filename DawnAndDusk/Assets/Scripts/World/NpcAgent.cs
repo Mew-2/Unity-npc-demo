@@ -24,33 +24,45 @@ public class NpcAgent : MonoBehaviour
     public GridPathfinder pathfinder;
 
     [Header("移动")]
-    public float moveSpeed = 1.07f;                // m/s，对齐 Walker 循环片段步幅（1.421m / 1.333s）
     public float turnSpeedDegPerSec = 720f;        // 转身速度
-    public float arriveDistance = 0.02f;           // 到达判定
+    public float arriveDistance = 0.02f;           // 精确到达判定（root motion 下主要靠"冲过头"判定 + 吸附收尾）
     public float groundOffset = 1f;                // 胶囊中心离地高度（胶囊高 2，所以是 1）
 
-    [Header("加减速（仅旧模式 useRootMotion=false 生效）")]
-    [Tooltip("从静止到满速的时间（秒）。root motion 模式下加速由 WalkStart 片段自带，这个值不参与")]
-    public float accelTime = 0.6f;
+    [Tooltip("离锚点多近就直接吸附过去（米）。根位移不受控，避免停在离目标十几厘米的地方")]
+    public float snapDistance = 0.35f;
 
-    [Tooltip("到锚点前开始减速的时间（秒）。root motion 模式下减速由 WalkStop 片段完成，这个值不参与")]
-    public float decelTime = 0.3f;
+    [Tooltip("walk_end 判定「到达」的容差（米）")]
+    public float reachedTolerance = 0.4f;
 
-    [Tooltip("用动画的根位移驱动移动（脚不打滑）。关掉则回到代码算速度的旧模式")]
+    [Tooltip("单段路最长走多久（秒），超时放弃该段")]
+    public float segmentTimeout = 12f;
+
+    [Header("回退模式（没有 Animator Controller 时自动启用）")]
+    [Tooltip("用动画的根位移驱动移动（脚不打滑）。没有 controller（公开仓库不带授权资产）时自动回退到代码驱动")]
     public bool useRootMotion = true;
 
-    [Tooltip("步幅校准：VRM 是重定向到 Kawaii 片段的，腿长不同导致实际步幅小于片段烘焙值。\n" +
-             "1 = 完全按片段根位移；Play 时拖这个值直到脚看起来钉在地上（实测约 0.65~0.75）")]
+    [Tooltip("代码驱动模式下的巡航速度（m/s）。root motion 模式下不参与")]
+    public float moveSpeed = 1.07f;
+
+    [Tooltip("代码驱动模式下的步幅校准。\n" +
+             "注意：root motion 模式下这个值无效，真正缩放根位移的是 Visual 上 RootMotionRelay.scale")]
     [Range(0.3f, 1.2f)]
     public float strideScale = 0.7f;
+
+    [Tooltip("代码驱动模式下从静止到满速的时间（秒）。root motion 模式由 WalkStart 片段自带")]
+    public float accelTime = 0.6f;
+
+    [Tooltip("代码驱动模式下终点前的减速时间（秒）。root motion 模式由 WalkStop 片段完成")]
+    public float decelTime = 0.3f;
 
     [Tooltip("走路拐弯时是否播 Pivot 片段。该片段自带 3m 位移，与代码直线位移冲突，先关掉")]
     public bool autoPivot;
 
-    [Tooltip("检测到「状态在走路但身体完全不动」时，重启走路片段并把结果写日志（诊断用）")]
-    public bool probeStallRecovery = true;
+    [Tooltip("诊断用：检测到「状态在走路但身体完全不动」时重启走路片段并写日志。\n" +
+             "根因（loopTime / CrossFade 归一化时长）已修，平时建议关掉")]
+    public bool probeStallRecovery;
 
-    [Tooltip("多少秒没有位移算卡死（秒）")]
+    [Tooltip("多少秒没有位移算卡死（秒），仅诊断用")]
     public float stallSeconds = 0.4f;
 
     /// <summary>当前所在锚点 id，用于下一次 FindPath 的起点。</summary>
@@ -58,17 +70,11 @@ public class NpcAgent : MonoBehaviour
 
     public bool IsMoving { get; private set; }
 
-    /// <summary>当前实际速度占 moveSpeed 的比例（0~1），供动画驱动用。</summary>
-    public float SpeedNormalized => moveSpeed > 0.0001f ? Mathf.Clamp01(_currentSpeed / moveSpeed) : 0f;
-
     /// <summary>当前实际平移速度（m/s），写日志用。</summary>
     public float CurrentSpeed => _currentSpeed;
 
-    /// <summary>是否正在刹车（快到终点），状态机用它切收势片段。</summary>
+    /// <summary>是否正在刹车（只有代码驱动模式会置位），状态机用它挡一下起步</summary>
     public bool IsBraking { get; private set; }
-
-    /// <summary>刹车进度 0~1（1 = 刚进刹车窗口，0 = 已经到点）。供播放速率做线性收速。</summary>
-    public float BrakeRatio => _brakeRatio;
 
     Coroutine _moveRoutine;
     NpcAnimationDriver _animationDriver;
@@ -84,9 +90,6 @@ public class NpcAgent : MonoBehaviour
     int _speedFrames;
     float _speedMax;
     float _speedSum;
-
-    float _brakeDistance = 0.12f;
-    float _brakeRatio = 1f;
 
     void Awake()
     {
@@ -185,17 +188,31 @@ public class NpcAgent : MonoBehaviour
         _moveRoutine = StartCoroutine(MoveAlongPointsDispatch(points, anchorId));
     }
 
-    /// <summary>walk 入口在 MoveAlongPoints 开头分流：useRootMotion 时走根位移版本。</summary>
+    /// <summary>
+    /// 分流：有 Animator Controller（= 有授权动画资产）就走根位移，没有就回退到代码驱动。
+    /// 公开仓库不带授权资产，clone 下来没有 controller；这条回退保证「她仍然会走」（T-pose 平移），
+    /// 而不是原地站 12 秒再报超时。
+    /// </summary>
     IEnumerator MoveAlongPointsDispatch(List<Vector3> points, string targetAnchor)
     {
-        if (useRootMotion)
+        if (_animationDriver == null)
+        {
+            _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
+        }
+
+        var hasAnimation = _animationDriver != null && _animationDriver.HasController;
+        if (useRootMotion && hasAnimation)
         {
             yield return MoveAlongRootMotion(points, targetAnchor);
+            yield break;
         }
-        else
+
+        if (useRootMotion)
         {
-            yield return MoveAlongPoints(points, targetAnchor);
+            GameLog.Event("walk_fallback", "anchor", targetAnchor, "reason", "no_controller");
         }
+
+        yield return MoveAlongPoints(points, targetAnchor);
     }
 
     /// <summary>0.5 秒内转向目标（锚点名或 player）。</summary>
@@ -281,11 +298,8 @@ public class NpcAgent : MonoBehaviour
 
                 // 这里原本有一段"最后 0.3m 把播放速率收到 0.6"的刹车逻辑。
                 // 实测（decelTime 置 0 / 1 各跑一次）观感没有区别：0.45m 的窗口只影响约 0.4 秒，
-                // 而收势本身由 WalkStop 片段完成，再叠一层减速属于双重减速。
-                // 保留 IsBraking 只为旧模式（useRootMotion=false）的代码路径服务。
+                // 而收势本身由 WalkStop 片段完成，再叠一层减速属于双重减速，已删除。
                 IsBraking = false;
-                _brakeDistance = 0f;
-                _brakeRatio = 1f;
 
                 // 实际速度用位移反推，供动画驱动和日志使用
                 var moved = FlatDistance(transform.position, lastPosition);
@@ -381,7 +395,7 @@ public class NpcAgent : MonoBehaviour
 
                 _elapsed += Time.deltaTime;
                 guard += Time.deltaTime;
-                if (guard > 12f)
+                if (guard > segmentTimeout)
                 {
                     GameLog.Event(
                         "walk_timeout",
@@ -402,7 +416,7 @@ public class NpcAgent : MonoBehaviour
         }
 
         // 收尾吸附：根位移不可控，走到最后一小段时直接对齐目标，避免"停在离目标 20cm 处"
-        if (FlatDistance(transform.position, goal) < 0.35f)
+        if (FlatDistance(transform.position, goal) < snapDistance)
         {
             transform.position = new Vector3(goal.x, transform.position.y, goal.z);
         }
@@ -413,7 +427,7 @@ public class NpcAgent : MonoBehaviour
         _moveRoutine = null;
 
         // 只有真正到达才说"到达"；超时/冲过头要如实记录
-        var reached = FlatDistance(transform.position, goal) < 0.4f;
+        var reached = FlatDistance(transform.position, goal) < reachedTolerance;
         GameLog.Event(
             "walk_end",
             "anchor", CurrentAnchorId,
