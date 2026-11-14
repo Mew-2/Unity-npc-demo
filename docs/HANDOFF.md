@@ -92,3 +92,32 @@ Assets/KAWAII_ANIMATIOMS_100/Assets/Animations/
 3. 膝枕相机（PoseCamera）
 4. 两幕状态（夜/晨）
 5. M2 录屏（12-12）
+
+## 7. 2026-11-14 追加：真实场景是本地资产，怎么在另一台机器复原
+
+demo 现在跑在**真实公寓场景**上，但两个场景包都按授权政策放进 `_LocalTest/`（gitignore），
+所以 clone 下来只有灰盒 `NightRoom`。复原步骤：
+
+| 资产 | 路径 | 大小 |
+|---|---|---|
+| Kawaii 动画包 | `C:\baidunetdiskdownload\KAWAII ANIMATIONS 100 v1.10.3.unitypackage` | 78.5 MB |
+| 公寓场景包（MR 变体用这个） | `ArchVizPRO Interior Vol8 URP 1.0.unitypackage` | 3.1 GB |
+
+```powershell
+# 1) 动画（详见第 3 节，抽 7 个 FBX 到 Assets/_LocalTest/Kawaii/）
+# 2) 公寓：包解开后把 Assets/ArchVizPRO_Interior_Vol.8_URP/ 整个放进
+#    DawnAndDusk/Assets/_LocalTest/ArchViz/，保留 .meta
+```
+
+导入后在 Unity 里跑菜单：
+
+```text
+Tools → DawnAndDusk → Build Kawaii Animator     # 生成 controller + 步速表
+Tools → DawnAndDusk → Build Apartment Demo      # 生成 ApartmentDemo.unity（主卧机位 + 锚点 + 组件）
+```
+
+`ApartmentDemo.unity` 的机位、锚点、组件全在 `ApartmentSceneBuilder.cs` 里用代码声明，
+改坐标直接改那个文件再跑一次菜单即可（锚点落进床的包围盒会报错提示）。
+
+> 注意：`ProjectSettings` 里的质量档当前是 **High Fidelity**（URP-HighFidelity，MSAA 4x）；
+> Game 视图记得取消 `Low Resolution Aspect Ratios`，否则画面和 UI 都会糊。
