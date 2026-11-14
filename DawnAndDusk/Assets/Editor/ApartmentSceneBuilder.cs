@@ -24,7 +24,8 @@ public static class ApartmentSceneBuilder
     static readonly Vector3 StandUpPos = new Vector3(3.53f, 0.05f, 3.28f);
 
     /// <summary>实验开关：把床整组藏掉（含床架），验证"她过不来"到底是床挡的还是逻辑问题。</summary>
-    const bool HideBedForTest = true;
+    // 2026-11-15 03:40：床与椅子都还原（false），观察她会不会被椅子/床脚挡住
+    const bool HideBedForTest = false;
 
     /// <summary>目标身高（米）：玩家 175cm → 站立视线 163cm；鲸鲸 162cm。</summary>
     const float PlayerEyeHeight = 1.63f;
