@@ -23,6 +23,9 @@ public class RootMotionRelay : MonoBehaviour
     public bool relay = true;
 
     Animator _animator;
+    float _logTimer;
+    float _deltaSum;
+    int _deltaCount;
 
     void Awake()
     {
@@ -41,6 +44,25 @@ public class RootMotionRelay : MonoBehaviour
         }
 
         var delta = _animator.deltaPosition * scale;
+
+        // 诊断：每 0.5 秒把"这一小段收到的位移"和根位移开关状态写进日志
+        _logTimer += Time.deltaTime;
+        _deltaSum += delta.magnitude;
+        _deltaCount++;
+        if (_logTimer >= 0.5f)
+        {
+            GameLog.Event(
+                "rootmotion",
+                "apply", _animator.applyRootMotion ? "1" : "0",
+                "avatar", _animator.avatar != null ? (_animator.isHuman ? "human" : "generic") : "null",
+                "deltaSum", GameLog.F(_deltaSum),
+                "frames", _deltaCount.ToString(),
+                "relayOn", relay ? "1" : "0");
+            _logTimer = 0f;
+            _deltaSum = 0f;
+            _deltaCount = 0;
+        }
+
         delta.y = 0f; // 只在水平面移动，垂直由贴地逻辑负责
         target.position += delta;
 
