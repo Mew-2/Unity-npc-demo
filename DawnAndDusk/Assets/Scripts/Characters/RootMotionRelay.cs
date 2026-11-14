@@ -61,9 +61,10 @@ public class RootMotionRelay : MonoBehaviour
     float _seamSum;
     int _seamFrames;
 
-    float _clampTimer;
+    float _clampWindow;
     float _clampCut;
-    int _clampCount;
+    int _clampFrames;
+    bool _clampSeen;
 
     void Awake()
     {
@@ -172,43 +173,46 @@ public class RootMotionRelay : MonoBehaviour
     /// <summary>
     /// 根位移限速：把混合期"姿态偏移被当成位移"的尖峰削平。
     /// 只在超过 maxSpeed 时生效，正常走路（约 1.03 m/s）不会被削。
+    /// 记录按"每 0.5 秒一窗"统计，窗口里只要削过就写一条，避免过渡窗口太短而一条都记不到。
     /// </summary>
     void ClampDelta(ref Vector3 delta)
     {
-        if (maxSpeed <= 0.001f)
+        _clampWindow += Time.deltaTime;
+
+        if (maxSpeed > 0.001f)
+        {
+            var maxDelta = maxSpeed * Time.deltaTime;
+            var magnitude = new Vector2(delta.x, delta.z).magnitude;
+            if (magnitude > maxDelta && maxDelta > 0.00001f)
+            {
+                var k = maxDelta / magnitude;
+                delta.x *= k;
+                delta.z *= k;
+                _clampCut += magnitude - maxDelta;
+                _clampFrames++;
+                _clampSeen = true;
+            }
+        }
+
+        if (_clampWindow < 0.5f)
         {
             return;
         }
 
-        var maxDelta = maxSpeed * Time.deltaTime;
-        var flat = new Vector2(delta.x, delta.z);
-        var magnitude = flat.magnitude;
-        if (magnitude <= maxDelta || maxDelta <= 0.00001f)
+        if (_clampSeen)
         {
-            return;
+            GameLog.Event(
+                "rm_clamp",
+                "cut", GameLog.F(_clampCut),
+                "frames", _clampFrames.ToString(),
+                "state", StateName(_animator.GetCurrentAnimatorStateInfo(0)),
+                "trans", _animator.IsInTransition(0) ? "1" : "0");
         }
 
-        var k = maxDelta / magnitude;
-        delta.x *= k;
-        delta.z *= k;
-
-        _clampTimer += Time.deltaTime;
-        _clampCut += magnitude - maxDelta;
-        _clampCount++;
-        if (_clampTimer < 0.5f)
-        {
-            return;
-        }
-
-        GameLog.Event(
-            "rm_clamp",
-            "cut", GameLog.F(_clampCut),
-            "frames", _clampCount.ToString(),
-            "state", StateName(_animator.GetCurrentAnimatorStateInfo(0)),
-            "trans", _animator.IsInTransition(0) ? "1" : "0");
-        _clampTimer = 0f;
+        _clampWindow = 0f;
         _clampCut = 0f;
-        _clampCount = 0;
+        _clampFrames = 0;
+        _clampSeen = false;
     }
 
     /// <summary>
