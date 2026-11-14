@@ -18,7 +18,7 @@ RULES = """只输出一个 JSON 对象，不要 markdown 代码块，不要多�
 规则：
 1. op 只能是 spawn / move / look_at / set，一次最多 5 条，按顺序执行。
 2. spawn: {"op":"spawn","anchor":"锚点id","name":"可选名"}
-3. move: {"op":"move","entity":"npc","anchor":"锚点id"}
+3. move: {"op":"move","entity":"npc","anchor":"锚点id 或 player"}（player = 走到玩家身边，玩家位置是动态的）
 4. look_at: {"op":"look_at","entity":"npc","target":"锚点id 或 player"}
 5. set: {"op":"set","target":"light|curtain|outfit","state":"on/off|open/closed|nightgown/daydress"}
 6. 只能使用下面列出的锚点和实体，不能编造。

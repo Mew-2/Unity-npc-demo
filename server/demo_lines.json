@@ -58,7 +58,7 @@
       "response": {
         "say": "……过来就过来。",
         "commands": [
-          { "op": "move", "entity": "npc", "anchor": "front" },
+          { "op": "move", "entity": "npc", "anchor": "player" },
           { "op": "look_at", "entity": "npc", "target": "player" }
         ]
       }

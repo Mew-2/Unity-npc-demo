@@ -53,7 +53,16 @@ public class CommandExecutor : MonoBehaviour
                         continue;
                     }
 
-                    npc.WalkTo(command.anchor);
+                    // anchor = "player" 是动态目的地：走到玩家身边，不依赖固定锚点
+                    if (command.anchor == "player")
+                    {
+                        npc.WalkToPlayer();
+                    }
+                    else
+                    {
+                        npc.WalkTo(command.anchor);
+                    }
+
                     yield return new WaitUntil(() => !npc.IsMoving);
                     break;
 
@@ -106,8 +115,7 @@ public class CommandExecutor : MonoBehaviour
 
         if (command.anchor == "player")
         {
-            Debug.LogWarning("[CommandExecutor] player 不能作为目的地");
-            return false;
+            return true;   // 动态目的地，运行时按玩家位置算
         }
 
         if (!graph.Has(command.anchor))

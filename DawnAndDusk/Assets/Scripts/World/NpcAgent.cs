@@ -113,6 +113,77 @@ public class NpcAgent : MonoBehaviour
     }
 
     /// <summary>走到指定锚点。优先用栅格 A*（会自动绕开家具），失败时退回锚点图最短路。</summary>
+    /// <summary>
+    /// 走到玩家身边（"过来"语义）。目的地是动态的：玩家相机前方 0.75 米处，
+    /// 不再依赖固定锚点——床被还原后 front 锚点离玩家可能有 3 米，说"过来"结果只挪了 37cm。
+    /// </summary>
+    public void WalkToPlayer()
+    {
+        var cam = Camera.main != null ? Camera.main.transform : null;
+        if (cam == null)
+        {
+            Debug.LogWarning("[NpcAgent] 找不到玩家相机，WalkToPlayer 忽略");
+            return;
+        }
+
+        var toPlayer = cam.position;
+        toPlayer.y = transform.position.y;
+
+        var fromPlayer = toPlayer - transform.position;
+        fromPlayer.y = 0f;
+        var dir = fromPlayer.sqrMagnitude > 0.0001f ? fromPlayer.normalized : transform.forward;
+
+        // 停在玩家前方 0.75 米：够近能"面对面"，又不至于踩到玩家身上
+        var stop = toPlayer - dir * 0.75f;
+        WalkToPoint(stop, "player");
+    }
+
+    /// <summary>走到任意世界坐标点（用栅格 A*；失败则直线）。供"过来"这类动态目的地使用。</summary>
+    public void WalkToPoint(Vector3 target, string label)
+    {
+        if (pathfinder == null)
+        {
+            pathfinder = FindObjectOfType<GridPathfinder>();
+        }
+
+        if (_animationDriver == null)
+        {
+            _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
+        }
+
+        target.y = transform.position.y;
+        var points = new List<Vector3>();
+        var source = "grid";
+        if (pathfinder == null || !pathfinder.TryFindPath(transform.position, target, points) || points.Count < 2)
+        {
+            source = "straight";
+            points.Clear();
+            points.Add(transform.position);
+            points.Add(target);
+        }
+
+        if (points.Count < 2)
+        {
+            GameLog.Event("walk_reject", "from", CurrentAnchorId, "to", label, "reason", "no_points");
+            return;
+        }
+
+        GameLog.Event(
+            "walk_accept",
+            "from", CurrentAnchorId,
+            "to", label,
+            "source", source,
+            "points", points.Count.ToString(),
+            "route", string.Join(";", points.ConvertAll(p => $"{p.x:F2},{p.z:F2}")));
+
+        if (_moveRoutine != null)
+        {
+            StopCoroutine(_moveRoutine);
+        }
+
+        _moveRoutine = StartCoroutine(MoveAlongPointsDispatch(points, label));
+    }
+
     public void WalkTo(string anchorId)
     {
         if (graph == null)
