@@ -18,9 +18,9 @@ public static class ApartmentSceneBuilder
     const string VrmPath = "Assets/Characters/DeepSeekChan/DeepSeek-chan.vrm";
     static readonly string OutDir = Path.Combine(Application.dataPath, "../dsh-apartment-shots");
 
-    // 玩家躺在床上（床身 z 0.90~3.14 的南半部，离窗 2.1m），起身后站到床沿北侧的窗带里
-    static readonly Vector3 PlayerPos = new Vector3(3.53f, 0.05f, 1.55f);
-    static readonly Vector3 PlayerEuler = new Vector3(-6f, 0f, 0f);
+    // 玩家躺在床上（床身 z 0.90~3.14 的南半部），视线高度 0.90m 更像躺着
+    static readonly Vector3 PlayerPos = new Vector3(3.53f, 0.05f, 1.50f);
+    static readonly Vector3 PlayerEuler = new Vector3(-2f, 0f, 0f);
     static readonly Vector3 StandUpPos = new Vector3(3.53f, 0.05f, 3.28f);
 
     /// <summary>目标身高（米）：玩家 175cm → 站立视线 163cm；鲸鲸 162cm。</summary>
@@ -39,16 +39,15 @@ public static class ApartmentSceneBuilder
     {
     // 锚点全部放在"窗带"（床北侧 z≈3.2~3.5 的那条带，宽约 0.5m、长 2m）——
     // 绕床走位在物理上不成立（家具比房间还宽），所以改用"她本来就在窗前"的设定
-        new AnchorSpec { id = "front",  name = "床头边", desc = "你头侧的床沿，贴身说话的位置",   pos = new Vector3(3.30f, 0f, 3.22f) },
-        new AnchorSpec { id = "bed",    name = "床沿",   desc = "床北侧，靠窗的床沿",             pos = new Vector3(2.55f, 0f, 3.30f) },
-        new AnchorSpec { id = "desk",   name = "书桌边", desc = "靠西墙的书桌",                   pos = new Vector3(2.10f, 0f, 3.62f) },
-        new AnchorSpec { id = "window", name = "窗中",   desc = "落地窗正前方",                   pos = new Vector3(3.60f, 0f, 3.45f) },
-        new AnchorSpec { id = "door",   name = "窗带东端", desc = "窗带东侧，靠近门口方向",       pos = new Vector3(4.40f, 0f, 3.40f) },
+        new AnchorSpec { id = "front",  name = "床头边", desc = "你头侧的床沿，贴身说话的位置",   pos = new Vector3(3.53f, 0f, 3.20f) },
+        new AnchorSpec { id = "bed",    name = "床沿",   desc = "床北侧，靠窗的床沿",             pos = new Vector3(2.95f, 0f, 3.32f) },
+        new AnchorSpec { id = "desk",   name = "书桌边", desc = "靠西墙的书桌",                   pos = new Vector3(2.12f, 0f, 3.62f) },
+        new AnchorSpec { id = "window", name = "窗前",   desc = "落地窗西侧",                     pos = new Vector3(2.40f, 0f, 3.45f) },
     };
 
     static readonly (string a, string b)[] Edges =
     {
-        ("desk", "bed"), ("bed", "front"), ("front", "window"), ("window", "door"),
+        ("desk", "window"), ("window", "bed"), ("bed", "front"),
     };
 
     /// <summary>
@@ -60,8 +59,12 @@ public static class ApartmentSceneBuilder
     {
         var moved = 0;
 
-        // 掉在地上的两个靠垫直接收起来（怎么摆都容易和床面穿插/悬空），书桌椅子保持原样
-        var hide = new[] { "Bed_Bedroom_Pillow6", "Bed_Bedroom_Pillow7" };
+        // 掉在地上的两个靠垫直接收起来（怎么摆都容易和床面穿插/悬空）
+        // 椅子暂时也收起：先验证"没有椅子她能不能走到床边"，再决定怎么摆
+        var hide = new[]
+        {
+            "Bed_Bedroom_Pillow6", "Bed_Bedroom_Pillow7", "Chair_Norraryd",
+        };
         var hidden = 0;
         foreach (var t in Object.FindObjectsOfType<Transform>())
         {

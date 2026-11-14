@@ -20,6 +20,9 @@ public class PlayerController : MonoBehaviour
     [Tooltip("开局是否躺在床上（碰撞体先关掉，按移动键时瞬移到床边并启用碰撞）")]
     public bool startSeated = true;
 
+    [Tooltip("是否允许走动。房间没有站位时可关掉，只保留环视")]
+    public bool allowMovement = true;
+
     [Tooltip("起身后站定的位置（世界坐标，必须是空地）")]
     public Vector3 standUpPosition;
 
@@ -51,7 +54,7 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         var input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-        var moving = input.sqrMagnitude > 0.01f;
+        var moving = allowMovement && input.sqrMagnitude > 0.01f;
 
         if (_seated && moving)
         {

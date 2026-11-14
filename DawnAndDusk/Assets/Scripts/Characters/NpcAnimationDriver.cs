@@ -112,7 +112,9 @@ public class NpcAnimationDriver : MonoBehaviour
                 "trans", inTransition ? "1" : "0",
                 "next", next,
                 "moving", npc.IsMoving ? "1" : "0",
-                "braking", npc.IsBraking ? "1" : "0");
+                "braking", npc.IsBraking ? "1" : "0",
+                "pos", $"{npc.transform.position.x:F2},{npc.transform.position.z:F2}",
+                "cam", $"{Camera.main.transform.position.x:F2},{Camera.main.transform.position.z:F2}");
         }
     }
 
