@@ -185,6 +185,13 @@
     L4 同一参数调三次不准 = 模型缺自由度（滑步/起步猛/卡死/过不来四个案例）；
     L5 换机制后剩余问题落在"有文档的坑"里，是选型的实用标准。
   - 结论一句话：能借轮子就别手搓；手搓要能逐帧验证；调三次不准就换模型；先确认眼睛没坏。
+
+- **2026-11-15 05:45 收工整理**
+  - 删除无用代码：`NpcAgent.WalkToPoint`（被"路径截断"方案取代后无调用）
+  - 删除一次性脚本：`tools/bed-colliders.ps1`、`tools/bedroom-layout.ps1`（排查用的场景解析器，留 `tools/walk-excess.ps1`）
+  - 构建预览图不再入库：`.gitignore` 增加 `dsh-apartment-shots/`、`dsh-archviz-shots/`（每次构建重拍，5 张约 10MB）
+  - 重写 `docs/HANDOFF.md` 头部：当前状态（含 4 个易复发的坑）、已知限制与下一步优先级、**拷到另一台电脑的文件清单**
+  - 服务端：`move` 支持 `anchor="player"`（动态目的地），`pytest 12 passed`
 ## 当前卡点
 
 - **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟。已用空场景 bisect 验证**与 VRM 无关**（空场景进 Play 再退同样卡），是这台机器/这个版本 Unity 的退出行为，先用任务管理器结束，低优先级。

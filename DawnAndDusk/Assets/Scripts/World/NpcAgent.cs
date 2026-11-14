@@ -259,52 +259,6 @@ public class NpcAgent : MonoBehaviour
         return best;
     }
 
-    /// <summary>走到任意世界坐标点（用栅格 A*；失败则直线）。供"过来"这类动态目的地使用。</summary>
-    public void WalkToPoint(Vector3 target, string label)
-    {
-        if (pathfinder == null)
-        {
-            pathfinder = FindObjectOfType<GridPathfinder>();
-        }
-
-        if (_animationDriver == null)
-        {
-            _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
-        }
-
-        target.y = transform.position.y;
-        var points = new List<Vector3>();
-        var source = "grid";
-        if (pathfinder == null || !pathfinder.TryFindPath(transform.position, target, points) || points.Count < 2)
-        {
-            source = "straight";
-            points.Clear();
-            points.Add(transform.position);
-            points.Add(target);
-        }
-
-        if (points.Count < 2)
-        {
-            GameLog.Event("walk_reject", "from", CurrentAnchorId, "to", label, "reason", "no_points");
-            return;
-        }
-
-        GameLog.Event(
-            "walk_accept",
-            "from", CurrentAnchorId,
-            "to", label,
-            "source", source,
-            "points", points.Count.ToString(),
-            "route", string.Join(";", points.ConvertAll(p => $"{p.x:F2},{p.z:F2}")));
-
-        if (_moveRoutine != null)
-        {
-            StopCoroutine(_moveRoutine);
-        }
-
-        _moveRoutine = StartCoroutine(MoveAlongPointsDispatch(points, label));
-    }
-
     public void WalkTo(string anchorId)
     {
         if (graph == null)

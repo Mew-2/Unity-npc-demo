@@ -1,24 +1,48 @@
-# 交接：换机器 / 出租屋继续（更新 2026-11-13）
+# 交接：换机器 / 另一台电脑继续（更新 2026-11-15 05:45）
 
 > 代码在 GitHub：https://github.com/Mew-2/Unity-npc-demo
-> 最新提交：`756e01c`（Kawaii 动画 + structlog + 聊天滚动）
+> 以 `git log -1` 为准，本文只记"不在仓库里的东西"和"下一步做什么"。
 
-## 0. 当前状态
+## 0. 当前状态（2026-11-15 凌晨）
 
-- **服务端**：FastAPI + `/direct` + 校验 + 离线回放 + `structlog`（JSONL + `trace_id`）；`pytest 11 passed`
-- **Unity**：鲸鲸 VRM、表情（Shift+1~5）、摸头/拍背、`front` 近景锚点、Kawaii 动画（Idle / Walk Start-Loop-Stop / Pivot / Sit / Bow）
-- **公开仓库不含授权动画**：clone 后 `Resources.Load` 找不到 controller，自动回退 T-pose
-- **未做**：膝枕相机、两幕状态、真实 LLM key
+- **场景**：`Assets/_LocalTest/ArchViz/3D SCENE/ApartmentDemo.unity`（本地资产，builder 生成）。
+  主卧 + 起床视角；**家具全部还原**（床 / 椅子 / 桌 / 靠垫都在原位）。
+- **动画**：root motion 驱动（`RootMotionRelay`），`WalkStart → Walk → WalkStop` 接缝已量化并收敛：
+  峰值 2.48 → 1.35（`maxSpeed` 限速），剩余 ~0.095m 接缝位移**已决策不修**（见 PROGRESS 与 LESSONS）。
+- **已知的关键坑**（都已修，换机器/重建时容易复发）：
+  - `loopTime` 必须写进 FBX 的 `.meta`（`EnsureLoopSettings()`），否则 Walk 播一遍就停；
+  - 过渡时长要用秒（`hasFixedDuration`）；`Animator.CrossFade` 的时长是**归一化时间**；
+  - `Shoot()` 拍完预览图必须恢复相机，否则构建后直接 Play 会"从窗边朝门口看"；
+  - 玩家坐姿期间不能累积重力（`_vertical`），否则起身会被弹到床面上。
+- **服务端**：FastAPI + `/direct` + 校验 + 离线回放 + structlog；`pytest 12 passed`。
+  `move` 的 `anchor` 允许 `"player"`（动态目的地）。
+- **玩家**：出生 (3.30, 0.05, 0.62) 坐姿；起身落点 (2.05, 0.05, 0.55) 门口；
+  眼高 坐 0.90 / 站 1.63（175cm 的人因比例）；鲸鲸固定 1.62m。
 
-## 1. 必须带（不在 GitHub）
+## 0.1 已知限制 / 下一步优先级
 
-| 项 | 路径 | 大小 |
+| 优先级 | 事项 | 说明 |
 |---|---|---|
-| Kawaii 原包 | `C:\baidunetdiskdownload\KAWAII ANIMATIONS 100 v1.10.3.unitypackage` | 78.5 MB |
-| **可选**：已抽好的动画 | `DawnAndDusk/Assets/_LocalTest/` | 约 8 MB |
-| **可选**：调试日志 | `server/logs/turns.jsonl` | 很小 |
+| 高 | **导航网格只覆盖卧室** | `GridPathfinder.min/max = (1.42,0.05)~(4.95,3.72)`；玩家走出房间后目的地被夹到网格边界，她停在门口。要么扩到全屋（cell 放大到 0.15），要么明说"她不出卧室" |
+| 高 | **卧室在完整家具下几乎不可走** | `grid_built free=17/1332`。床膨胀 0.30m 后只剩窄缝。可选：`agentRadius` 降到 0.18（会穿模）/ 藏床 / 只让她在床前与窗带活动 |
+| 中 | Pivot 原地转身 | 现片段自带 2.95m 位移，`autoPivot=false`；需裁出"位移小、转角大"的窗口 |
+| 中 | 对话链路可观测性 | `say / commands / 表情 / 摸头` 尚未进 `game.jsonl` |
+| 低 | 夜间光照 | 晨间已出片；夜间需重新烘焙 lightmap（要 GPU） |
+| 低 | 膝枕相机 / 两幕状态 | 未开始 |
 
-只带 unitypackage 也能恢复：按下面第 3 步重抽 7 个 FBX。
+## 1. 必须拷到另一台电脑（不在 GitHub）
+
+仓库 clone 下来只缺下面这些（授权资产按政策不入库）：
+
+| 项 | 路径（本机） | 大小 | 必需 |
+|---|---|---|---|
+| Kawaii 动画 + 生成的 controller / 步速表 | `DawnAndDusk/Assets/_LocalTest/Kawaii/` | 6.8 MB | **必需**（没它只能 T-pose） |
+| ArchViz 公寓场景包 | `DawnAndDusk/Assets/_LocalTest/ArchViz/` | 3.2 GB | **必需**（demo 场景在这） |
+| 调试日志（可选，便于对比） | `DawnAndDusk/Logs/` | 0.7 MB | 可选 |
+| Kawaii 原包（备用，重抽 FBX 用） | `C:\baidunetdiskdownload\KAWAII ANIMATIONS 100 v1.10.3.unitypackage` | 78.5 MB | 可选 |
+| ~~Bedroom 20 场景包~~ | `Assets/_LocalTest/Bedroom/` | 962 MB | **不用带**（Built-in 管线，已弃用） |
+
+拷贝方式：直接复制上面两个目录（`.meta` 一起），放到新机器同名路径。
 
 ## 2. 环境（不是文件）
 
