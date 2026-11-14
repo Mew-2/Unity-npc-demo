@@ -11,11 +11,15 @@ public class NpcAnimationDriver : MonoBehaviour
     public NpcAgent npc;
     public KawaiiMotionProfile profile;
 
-    [Tooltip("起步片段播放倍速：0.8 秒的抬脚段原速播放观感偏慢，1.3~1.5 更像真的迈步")]
-    public float startPlayback = 1.35f;
+    [Tooltip("起步片段播放倍速。默认 1 = 按作者节奏。\n" +
+             "注意：WalkStart 末帧根速 0.90 m/s，Walk 首帧 0.96 m/s，本来就是接得上的；\n" +
+             "调大于 1 会把接缝变成 0.90 乘 n 再落到 0.96 的速度台阶，反而出现顿挫。\n" +
+             "真要起步更利落，应该裁掉片段头部的预备帧，而不是整体加速")]
+    public float startPlayback = 1f;
 
-    [Tooltip("收势片段播放倍速：1.0 秒的停步段原速播放会像慢动作，1.4~1.6 更利落")]
-    public float stopPlayback = 1.5f;
+
+    [Tooltip("收势片段播放倍速。默认 1 = 按作者节奏（WalkStop 平均 0.10 m/s，本身就是停步沉降）")]
+    public float stopPlayback = 1f;
 
     Animator _animator;
     float _speed;
