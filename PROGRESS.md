@@ -117,6 +117,15 @@
   - 修 UI 叠字：去掉 `ContentSizeFitter`（和手动高度打架），改为按 `preferredHeight` 显式撑开；字号 20→22、行距 1.2、面板 200→248。
   - 验证：无头渲染 5 张机位图确认构图与光照；锚点全部通过自检。
 
+- **2026-11-15 root motion 卡死：从"看现象"改成"抓现场"**
+  - 现象：`去门口` 走到约 (2.59, 1.70) 停住，`walk_end elapsed=24 reached=0`。同一段路前 1.5s 根位移正常（`deltaSum≈0.5/0.5s`，≈1.06 m/s），之后 `deltaSum=0`，而 `state` 仍是 `Walk`、`applyRootMotion=1`、`avatar=human`。
+  - 已排除：`forced_idle` 误切（已由 `!useRootMotion` 门控）、Animator 视锥剔骨（已 `AlwaysAnimate` + `ForceLOD(0)`）。
+  - 检索到的同类案例：`deltaPosition` 恒为 0 的两大来源是 ① `applyRootMotion=false`；② 根位移被更高权重层/带 AvatarMask 的层覆盖（Unity IssueTracker 明确"flip 动画在层上会覆盖 base layer 的根位移"）。因此"我们的 `state=Walk`"和"Animator 实际在播什么"必须分开记——日志里的 `state` 是 driver 自己映射的枚举，不能当作 Animator 的真相。
+  - 新增 `rm_stall` 全量快照（`RootMotionRelay`）：走路状态且水平根位移连续 0.25s 为 0 时，一次性记录 `applyRootMotion / animator.speed / updateMode / cullingMode / 层权重 / currentState(nt,len,speed,loop) / 过渡(duration,norm,anyState,next) / deltaPosition / velocity / rootPosition / bodyPosition / pivotPosition / deltaYaw / 全部 Animator 参数 / timeScale`，之后每秒补 1 条（上限 5 条），恢复时打 `rm_resume`。
+  - 新增卡死检测与探针（`NpcAgent`）：瞬时速度 < 0.06 m/s 持续 0.4s → `move_stall`（含段号、剩余距离、朝向、driver 状态），并调 `NpcAnimationDriver.ProbeRestartWalk()` 强制 `CrossFade("WalkStart")` 打 `stall_probe`；随后若恢复位移打 `move_resume`（带 `afterProbe`）。**判据：重启能恢复 ⇒ 根因在状态机/片段停在零位移帧；重启无效 ⇒ Animator 层面根本没产出根位移。**
+  - `walk_timeout` 增加 `seg / dist / state / moved / stallLogged`，`anim` 增加 `aSpeed / apply / layerW / len / stSpeed / loop`。
+  - 验证：仅 C# 改动，Unity 聚焦即重编译；待实机跑 `去门口`，看 `Logs/game.jsonl` 里 `move_stall` → `rm_stall` → `stall_probe` → `move_resume` 这条链。
+
 ## 当前卡点
 
 - **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟。已用空场景 bisect 验证**与 VRM 无关**（空场景进 Play 再退同样卡），是这台机器/这个版本 Unity 的退出行为，先用任务管理器结束，低优先级。

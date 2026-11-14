@@ -135,6 +135,12 @@ public class NpcAnimationDriver : MonoBehaviour
                 "pos", $"{npc.transform.position.x:F2},{npc.transform.position.y:F2},{npc.transform.position.z:F2}",
                 "vis", $"{transform.position.x:F2},{transform.position.y:F2},{transform.position.z:F2}",
                 "visLocalY", GameLog.F(transform.localPosition.y),
+                "aSpeed", GameLog.F(_animator.speed),
+                "apply", _animator.applyRootMotion ? "1" : "0",
+                "layerW", GameLog.F(_animator.GetLayerWeight(0)),
+                "len", GameLog.F(state.length),
+                "stSpeed", GameLog.F(state.speed),
+                "loop", state.loop ? "1" : "0",
                 "cam", $"{Camera.main.transform.position.x:F2},{Camera.main.transform.position.y:F2},{Camera.main.transform.position.z:F2}",
                 "lf", $"{lfPos.x:F2},{lfPos.y:F2},{lfPos.z:F2}",
                 "rf", $"{rfPos.x:F2},{rfPos.y:F2},{rfPos.z:F2}");
@@ -163,6 +169,30 @@ public class NpcAnimationDriver : MonoBehaviour
         {
             _animator.SetTrigger("Pivot");
         }
+    }
+
+    /// <summary>
+    /// 诊断用：NpcAgent 发现"状态在走路、身体完全不动"时，强行重启走路片段。
+    /// 结果会写进日志——如果重启后恢复位移，说明根因在状态机/片段（停在零位移的那一帧）；
+    /// 如果重启也不动，说明 Animator 层面根本没在产生根位移。
+    /// </summary>
+    public void ProbeRestartWalk(string reason)
+    {
+        if (!HasController)
+        {
+            return;
+        }
+
+        var state = _animator.GetCurrentAnimatorStateInfo(0);
+        GameLog.Event(
+            "stall_probe",
+            "reason", reason,
+            "from", CurrentStateName,
+            "nt", GameLog.F(state.normalizedTime),
+            "len", GameLog.F(state.length),
+            "aSpeed", GameLog.F(_animator.speed),
+            "trans", _animator.IsInTransition(0) ? "1" : "0");
+        _animator.CrossFade("WalkStart", 0.05f);
     }
 
     static string NameOf(AnimatorStateInfo state)

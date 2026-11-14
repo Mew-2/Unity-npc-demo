@@ -47,6 +47,12 @@ public class NpcAgent : MonoBehaviour
     [Tooltip("走路拐弯时是否播 Pivot 片段。该片段自带 3m 位移，与代码直线位移冲突，先关掉")]
     public bool autoPivot;
 
+    [Tooltip("检测到「状态在走路但身体完全不动」时，重启走路片段并把结果写日志（诊断用）")]
+    public bool probeStallRecovery = true;
+
+    [Tooltip("多少秒没有位移算卡死（秒）")]
+    public float stallSeconds = 0.4f;
+
     /// <summary>当前所在锚点 id，用于下一次 FindPath 的起点。</summary>
     public string CurrentAnchorId { get; private set; } = "bed";
 
@@ -65,6 +71,10 @@ public class NpcAgent : MonoBehaviour
     NpcAnimationDriver _animationDriver;
     float _currentSpeed;   // 当前实际速度 m/s
     float _elapsed;        // 本次移动已经走了多久
+    float _stallTimer;     // 连续无位移计时
+    bool _stallLogged;
+    float _stallStartAt;
+    float _stallProbedAt = -1f;
 
     void Awake()
     {
@@ -264,6 +274,52 @@ public class NpcAgent : MonoBehaviour
 
                 lastPosition = transform.position;
 
+                // 卡死检测：状态机在走路、身体却不动。以前这种卡死只能等 12 秒超时才发现，
+                // 现在 0.4 秒就抓现场，并主动重启片段——用"重启后动不动"来判定根因在哪一层
+                // 用瞬时速度判定（而不是单帧位移），高帧率下也不会误报
+                var frameSpeed = moved / Mathf.Max(Time.deltaTime, 0.0001f);
+                if (frameSpeed < 0.06f)
+                {
+                    _stallTimer += Time.deltaTime;
+                    if (_stallTimer >= stallSeconds && !_stallLogged)
+                    {
+                        _stallLogged = true;
+                        _stallStartAt = Time.time;
+                        GameLog.Event(
+                            "move_stall",
+                            "anchor", targetAnchor,
+                            "seg", i.ToString(),
+                            "dist", GameLog.F(FlatDistance(transform.position, target)),
+                            "remain", GameLog.F(remaining),
+                            "yaw", GameLog.F(transform.eulerAngles.y),
+                            "state", _animationDriver != null ? _animationDriver.CurrentStateName : "-",
+                            "bodySpeed", GameLog.F(_currentSpeed),
+                            "t", GameLog.F(_elapsed));
+
+                        if (probeStallRecovery && _animationDriver != null)
+                        {
+                            _stallProbedAt = Time.time;
+                            _animationDriver.ProbeRestartWalk("move_stall:" + targetAnchor);
+                        }
+                    }
+                }
+                else
+                {
+                    if (_stallLogged)
+                    {
+                        GameLog.Event(
+                            "move_resume",
+                            "anchor", targetAnchor,
+                            "afterProbe", GameLog.F(_stallProbedAt > 0f ? Time.time - _stallProbedAt : -1f),
+                            "stalled", GameLog.F(Time.time - _stallStartAt),
+                            "t", GameLog.F(_elapsed));
+                        _stallLogged = false;
+                        _stallProbedAt = -1f;
+                    }
+
+                    _stallTimer = 0f;
+                }
+
                 var distance = FlatDistance(transform.position, target);
                 if (distance <= arriveDistance)
                 {
@@ -294,7 +350,15 @@ public class NpcAgent : MonoBehaviour
                 guard += Time.deltaTime;
                 if (guard > 12f)
                 {
-                    GameLog.Event("walk_timeout", "anchor", targetAnchor, "remain", GameLog.F(remaining));
+                    GameLog.Event(
+                        "walk_timeout",
+                        "anchor", targetAnchor,
+                        "remain", GameLog.F(remaining),
+                        "seg", i.ToString(),
+                        "dist", GameLog.F(FlatDistance(transform.position, target)),
+                        "state", _animationDriver != null ? _animationDriver.CurrentStateName : "-",
+                        "moved", GameLog.F(moved),
+                        "stallLogged", _stallLogged ? "1" : "0");
                     break;
                 }
 
