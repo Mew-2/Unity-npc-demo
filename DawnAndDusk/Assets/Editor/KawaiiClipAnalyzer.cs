@@ -82,6 +82,14 @@ public static class KawaiiClipAnalyzer
         var total = 0f;
         var frames = Mathf.Max(1, Mathf.RoundToInt(clip.length * clip.frameRate));
 
+        // 接缝闭合检查：首帧与末帧的根平面位置差。
+        // 两段衔接时，如果 A 的末帧偏移和 B 的首帧偏移不一样，混合期就会把这段差值
+        // 当成位移拖过去——实测 WalkStart→Walk 每次多走约 0.10m，就是这个差值。
+        var first = new Vector3(Eval(rootX, 0f), 0f, Eval(rootZ, 0f));
+        var last = new Vector3(Eval(rootX, clip.length), 0f, Eval(rootZ, clip.length));
+        sb.AppendLine($"  根偏移：首帧 ({first.x:F3}, {first.z:F3})  末帧 ({last.x:F3}, {last.z:F3})  " +
+                      $"平面差 {Vector2.Distance(new Vector2(first.x, first.z), new Vector2(last.x, last.z)):F3}m");
+
         for (var f = 0; f <= frames; f++)
         {
             var t = Mathf.Min(clip.length, f / clip.frameRate);
