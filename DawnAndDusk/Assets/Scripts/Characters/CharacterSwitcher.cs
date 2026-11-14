@@ -85,6 +85,7 @@ public class CharacterSwitcher : MonoBehaviour
             visual.name = "Visual";
             visual.transform.localPosition = profile.visualOffset;
             visual.transform.localRotation = Quaternion.identity;
+            visual.transform.localScale = Vector3.one * Mathf.Max(0.1f, profile.visualScale);
 
             var animator = visual.GetComponentInChildren<Animator>();
             if (animator != null)

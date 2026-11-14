@@ -91,6 +91,7 @@ public class ExpressionController : MonoBehaviour
             _target[pair.Value] = pair.Value.Equals(key) ? Mathf.Clamp01(weight) : 0f;
         }
 
+        GameLog.Event("expr_set", "name", name, "weight", GameLog.F(weight), "vrm", _vrm != null ? "1" : "0");
         Debug.Log($"[ExpressionController] 表情 -> {name} ({weight:F2})");
     }
 
@@ -101,6 +102,8 @@ public class ExpressionController : MonoBehaviour
         {
             _target[key] = 0f;
         }
+
+        GameLog.Event("expr_clear");
     }
 
     void OnDisable()

@@ -19,6 +19,9 @@ public class CharacterProfile
     public Vector3 visualOffset = Vector3.zero;
     public float groundOffset = 1f;
 
+    [Tooltip("模型整体缩放：VRM 出厂身高通常 1.8~1.9m，按场景需要缩到 1.55m 左右")]
+    public float visualScale = 1f;
+
     [Header("交互骨骼（摸头 / 拍背用，可留空）")]
     public string headBone = "J_Bip_C_Head";
     public string backBone = "J_Bip_C_Spine";

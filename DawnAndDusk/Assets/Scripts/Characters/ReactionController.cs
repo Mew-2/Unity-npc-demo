@@ -19,13 +19,20 @@ public class ReactionController : MonoBehaviour
     {
         if (Time.time < _nextTime)
         {
+            GameLog.Event("reaction_skip", "kind", kind, "reason", "cooldown", "remain", GameLog.F(_nextTime - Time.time));
             return;
         }
 
         _nextTime = Time.time + cooldown;
         Debug.Log($"[Reaction] {kind} dialogue={(dialogue != null)}");
+        GameLog.Event(
+            "reaction",
+            "kind", kind,
+            "dialogue", dialogue != null ? "1" : "0",
+            "npc", npc != null ? "1" : "0");
 
         var expression = npc != null ? npc.GetComponentInChildren<ExpressionController>() : null;
+        GameLog.Event("reaction_expr", "kind", kind, "found", expression != null ? "1" : "0");
 
         switch (kind)
         {
@@ -53,6 +60,7 @@ public class ReactionController : MonoBehaviour
 
     void Say(string text)
     {
+        GameLog.Event("reaction_say", "text", text, "via", dialogue != null ? "DialogueUI" : "Console");
         if (dialogue != null)
         {
             dialogue.ShowLine(text);

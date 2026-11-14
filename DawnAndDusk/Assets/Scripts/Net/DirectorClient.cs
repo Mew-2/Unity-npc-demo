@@ -97,6 +97,7 @@ public class DirectorClient : MonoBehaviour
         };
         var json = JsonUtility.ToJson(requestDto);
         var url = baseUrl.TrimEnd('/') + "/direct";
+        GameLog.Event("direct_req", "text", playerText, "char", characterId, "anchor", npcAnchor, "url", url);
 
         using (var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST))
         {
@@ -109,6 +110,7 @@ public class DirectorClient : MonoBehaviour
 
             if (request.result != UnityWebRequest.Result.Success)
             {
+                GameLog.Event("direct_err", "text", playerText, "err", request.error ?? "unknown");
                 onError?.Invoke(request.error);
                 yield break;
             }
@@ -120,15 +122,27 @@ public class DirectorClient : MonoBehaviour
             }
             catch (Exception exception)
             {
+                GameLog.Event("direct_parse_err", "text", playerText, "msg", exception.Message);
                 onError?.Invoke("JSON 解析失败：" + exception.Message);
                 yield break;
             }
 
             if (response == null)
             {
+                GameLog.Event("direct_empty", "text", playerText);
                 onError?.Invoke("服务端返回为空");
                 yield break;
             }
+
+            var trace = request.GetResponseHeader("X-Trace-Id") ?? string.Empty;
+            GameLog.Event(
+                "direct_resp",
+                "trace", trace,
+                "say", response.say,
+                "n", (response.commands == null ? 0 : response.commands.Length).ToString(),
+                "body", (request.downloadHandler.text ?? string.Empty).Length > 400
+                    ? request.downloadHandler.text.Substring(0, 400)
+                    : request.downloadHandler.text);
 
             onSuccess?.Invoke(response);
         }

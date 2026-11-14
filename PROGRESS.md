@@ -106,9 +106,20 @@
   - 新增 `GameLog`（`Logs/game.jsonl`，10Hz 记录状态/时相/步速/播放速率/位移/刹车），三个编辑器工具：`KawaiiClipAnalyzer`（量片段节奏）、`KawaiiClipTrimmer`（裁剪帧区间）、`KawaiiAnimatorVerifier`（无头断言）。
   - 验证：无头批次 PASS（11 条状态机转换 + 3 条裁剪 + 场景接线 + VRM 68 子物体）；实机 Play 日志测得滑步 **1.3%**（原 11~16%），`forced_idle` 0 条。
 
+- **2026-11-14 场景升级：换成真实公寓（URP 原生）**
+  - 先试 `Bedroom 20`（324MB，Built-in 管线）：材质 30 个全是 Standard shader，需手转 URP；转完被子/台灯出现"迷彩"——**烘焙 lightmap 是 Built-in 材质下烤的，URP 下错位**，调参救不回来。且这间房**窗帘后面是实墙，没有窗**，"拉开窗帘"演不出来。
+  - 改用 `ArchVizPRO Interior Vol8 URP`（3.1GB，URP 原生：自带 `AVP8_UniversalRenderPipelineAsset`、`AVP_Fabric_Curtains` 等 6 个 ShaderGraph、URP 下烤好的 `LightingData`）。两个包都放 `Assets/_LocalTest/`（gitignore），公开仓库仍只带灰盒 `NightRoom`。
+  - 生成 `Assets/_LocalTest/ArchViz/3D SCENE/ApartmentDemo.unity`：主卧为舞台，机位在**床上**（躺着醒来的视角），鲸鲸站在北面落地窗前，中间隔着床——正好是"晨间唤醒"的构图。
+  - 锚点 5 个（front / bed / desk / window / door），沿**绕床的 U 形空地**布；builder 内置自检：锚点落进床包围盒会直接报错（`front`/`desk` 各被这条抓过一次）。
+  - 新增 `PlayerLook`：按住右键转视角（左键留给摸头/拍背）。
+  - `CharacterProfile.visualScale` + `CharacterSwitcher` 应用：1.9m → 1.56m。
+  - `StateSwitcher` 支持真实场景的灯与窗帘（`buildProps=false` + `roomLights` / `curtain` 引用），灰盒场景仍走程序生成。
+  - 修 UI 叠字：去掉 `ContentSizeFitter`（和手动高度打架），改为按 `preferredHeight` 显式撑开；字号 20→22、行距 1.2、面板 200→248。
+  - 验证：无头渲染 5 张机位图确认构图与光照；锚点全部通过自检。
+
 ## 当前卡点
 
-- **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟（怀疑 VRM 的 66 个 SkinnedMeshRenderer + SpringBone 销毁），只能任务管理器结束。
+- **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟。已用空场景 bisect 验证**与 VRM 无关**（空场景进 Play 再退同样卡），是这台机器/这个版本 Unity 的退出行为，先用任务管理器结束，低优先级。
 - **客户端可观测性**：`GameLog` 已就位，但只覆盖移动/Animator，对话链路（say/commands/表情/摸头）还没接。
 - 膝枕相机、两幕状态未做。
 - M1 还差**验收录屏**（10 秒，bed→window）。

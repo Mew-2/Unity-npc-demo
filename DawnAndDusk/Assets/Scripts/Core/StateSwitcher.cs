@@ -12,12 +12,24 @@ public class StateSwitcher : MonoBehaviour
     public AnchorGraph graph;
     public NpcAgent npc;
 
+    [Header("道具来源")]
+    [Tooltip("勾选 = 程序生成吊灯和窗帘（灰盒场景）；取消 = 用下面两个引用（真实卧室场景）")]
+    public bool buildProps = true;
+
+    [Tooltip("真实场景里要被开关的灯")]
+    public Light[] roomLights;
+
+    [Tooltip("真实场景里的窗帘（拉/关按局部偏移平移）")]
+    public Transform curtain;
+
     Light _chandelierLight;
     Renderer[] _flames;
     Transform _curtainLeft;
     Transform _curtainRight;
     Renderer _npcRenderer;
     Coroutine _curtainRoutine;
+    float[] _roomLightBase;
+    Vector3 _curtainBase;
 
     readonly Color _nightgownColor = new Color(0.22f, 0.3f, 0.55f);
     readonly Color _daydressColor = new Color(0.95f, 0.9f, 0.82f);
@@ -41,8 +53,25 @@ public class StateSwitcher : MonoBehaviour
             graph = FindObjectOfType<AnchorGraph>();
         }
 
-        BuildChandelier();
-        BuildCurtains();
+        if (buildProps)
+        {
+            BuildChandelier();
+            BuildCurtains();
+        }
+
+        if (roomLights != null)
+        {
+            _roomLightBase = new float[roomLights.Length];
+            for (var i = 0; i < roomLights.Length; i++)
+            {
+                _roomLightBase[i] = roomLights[i] != null ? roomLights[i].intensity : 0f;
+            }
+        }
+
+        if (curtain != null)
+        {
+            _curtainBase = curtain.localPosition;
+        }
 
         if (npc != null)
         {
@@ -185,6 +214,23 @@ public class StateSwitcher : MonoBehaviour
 
     public void SetLight(bool on)
     {
+        if (roomLights != null)
+        {
+            for (var i = 0; i < roomLights.Length; i++)
+            {
+                var light = roomLights[i];
+                if (light == null)
+                {
+                    continue;
+                }
+
+                light.enabled = on;
+                light.intensity = on && _roomLightBase != null && i < _roomLightBase.Length
+                    ? _roomLightBase[i]
+                    : 0f;
+            }
+        }
+
         if (_chandelierLight != null)
         {
             _chandelierLight.enabled = on;
@@ -207,6 +253,19 @@ public class StateSwitcher : MonoBehaviour
 
     public void SetCurtain(bool open)
     {
+        if (curtain != null)
+        {
+            if (_curtainRoutine != null)
+            {
+                StopCoroutine(_curtainRoutine);
+            }
+
+            _curtainRoutine = StartCoroutine(SlideTransform(
+                curtain,
+                _curtainBase + (open ? new Vector3(0.42f, 0f, 0f) : Vector3.zero)));
+            return;
+        }
+
         if (_curtainLeft == null || _curtainRight == null)
         {
             return;
@@ -220,6 +279,24 @@ public class StateSwitcher : MonoBehaviour
         _curtainRoutine = StartCoroutine(SlideCurtains(
             open ? _curtainOpenLeft : _curtainClosedLeft,
             open ? _curtainOpenRight : _curtainClosedRight));
+    }
+
+    IEnumerator SlideTransform(Transform target, Vector3 to)
+    {
+        var from = target.localPosition;
+        const float duration = 0.45f;
+        var elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            var t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
+            target.localPosition = Vector3.Lerp(from, to, t);
+            yield return null;
+        }
+
+        target.localPosition = to;
+        _curtainRoutine = null;
     }
 
     IEnumerator SlideCurtains(Vector3 leftTarget, Vector3 rightTarget)

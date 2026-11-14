@@ -24,13 +24,26 @@ public class CommandExecutor : MonoBehaviour
         }
 
         IsBusy = true;
+        GameLog.Event("cmd_batch", "n", commands.Length.ToString());
 
+        var index = 0;
         foreach (var command in commands)
         {
+            index++;
             if (command == null || string.IsNullOrEmpty(command.op))
             {
+                GameLog.Event("cmd_skip", "i", index.ToString(), "reason", "empty");
                 continue;
             }
+
+            var started = Time.time;
+            GameLog.Event(
+                "cmd",
+                "i", index.ToString(),
+                "op", command.op,
+                "anchor", command.anchor ?? "",
+                "target", command.target ?? "",
+                "state", command.state ?? "");
 
             switch (command.op)
             {
@@ -75,10 +88,12 @@ public class CommandExecutor : MonoBehaviour
                     break;
             }
 
+            GameLog.Event("cmd_done", "i", index.ToString(), "op", command.op, "sec", GameLog.F(Time.time - started));
             yield return new WaitForSeconds(0.2f);
         }
 
         IsBusy = false;
+        GameLog.Event("cmd_batch_done");
     }
 
     bool CanMove(DirectorClient.CommandDto command)

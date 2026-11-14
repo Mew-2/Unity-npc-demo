@@ -46,9 +46,11 @@ public class DialogueUI : MonoBehaviour
     {
         if (_busy || string.IsNullOrWhiteSpace(text))
         {
+            GameLog.Event("ui_submit_skip", "busy", _busy ? "1" : "0", "text", text ?? "");
             return;
         }
 
+        GameLog.Event("ui_submit", "text", text);
         StartCoroutine(SendRoutine(text.Trim()));
     }
 
@@ -84,6 +86,7 @@ public class DialogueUI : MonoBehaviour
 
         if (error != null)
         {
+            GameLog.Event("ui_error", "msg", error);
             Append("<color=#ff8080>（连接失败：" + error + "）</color>");
             SetStatus("连接失败，检查服务端是否在 8000 端口");
             _busy = false;
@@ -96,9 +99,11 @@ public class DialogueUI : MonoBehaviour
         }
 
         SetStatus("执行中…");
+        GameLog.Event("ui_execute", "n", (response.commands == null ? 0 : response.commands.Length).ToString());
         yield return executor.Execute(response.commands);
         SetStatus(string.Empty);
         _busy = false;
+        GameLog.Event("ui_done", "text", text);
     }
 
     /// <summary>外部（反应系统/指令）直接显示一句鲸鲸的台词。</summary>
@@ -106,6 +111,7 @@ public class DialogueUI : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(text))
         {
+            GameLog.Event("ui_showline", "text", text);
             Append("鲸鲸：" + text);
         }
     }
@@ -114,11 +120,19 @@ public class DialogueUI : MonoBehaviour
     {
         var current = _output.text;
         _output.text = string.IsNullOrEmpty(current) ? line : current + "\n" + line;
+        GameLog.Event("ui_append", "line", line, "len", _output.text.Length.ToString());
+
+        // 行高没算够会叠字：显式把内容高度撑到 preferredHeight，再滚到底
+        if (_output.transform is RectTransform content)
+        {
+            content.sizeDelta = new Vector2(content.sizeDelta.x, Mathf.Max(_output.preferredHeight, 40f));
+            LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+        }
 
         // 先让 ContentSizeFitter 重算高度，再滚到底
-        if (_output.transform.parent is RectTransform content)
+        if (_output.transform.parent is RectTransform parentContent)
         {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(parentContent);
         }
 
         Canvas.ForceUpdateCanvases();
@@ -157,7 +171,7 @@ public class DialogueUI : MonoBehaviour
         scaler.matchWidthOrHeight = 0.5f;
 
         var panel = CreateRect("Panel", canvasGo.transform);
-        SetAnchors(panel, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), new Vector2(0, 200), new Vector2(0, 0));
+        SetAnchors(panel, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), new Vector2(0, 248), new Vector2(0, 0));
         panel.gameObject.AddComponent<Image>().color = new Color(0.05f, 0.06f, 0.09f, 0.92f);
 
         _scroll = BuildScrollArea(panel, out _output);
@@ -254,16 +268,17 @@ public class DialogueUI : MonoBehaviour
 
         output = content.gameObject.AddComponent<Text>();
         output.font = _font;
-        output.fontSize = 20;
+        output.fontSize = 22;
+        output.lineSpacing = 1.2f;
         output.alignment = TextAnchor.UpperLeft;
         output.color = Color.white;
         output.supportRichText = true;
         output.horizontalOverflow = HorizontalWrapMode.Wrap;
         output.verticalOverflow = VerticalWrapMode.Overflow;
+        output.raycastTarget = false;
 
-        var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
+        // 高度由 Append 里按 preferredHeight 显式撑开；
+        // 不用 ContentSizeFitter，避免和手动 sizeDelta 互相打架（之前文字叠行的原因之一）
         scroll.content = content;
 
         // 右侧滚动条
