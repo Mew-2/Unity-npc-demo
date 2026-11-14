@@ -16,8 +16,17 @@ def test_unknown_anchor():
     assert errors and "kitchen" in errors[0]
 
 
-def test_player_not_destination():
-    errors = validate_commands([{"op": "move", "entity": "npc", "anchor": "player"}], WORLD)
+def test_player_is_valid_move_destination():
+    # "player" 是动态目的地：走到玩家身边，不要求出现在 anchors 里
+    world_without_player = WorldSnapshot(
+        anchors=[AnchorInfo(id=i) for i in ["door", "bed", "window"]],
+        entities=[EntityInfo(id="npc", kind="npc", at="bed")],
+    )
+    assert validate_commands([{"op": "move", "entity": "npc", "anchor": "player"}], world_without_player) == []
+
+
+def test_spawn_rejects_player():
+    errors = validate_commands([{"op": "spawn", "anchor": "player"}], WORLD)
     assert errors
 
 

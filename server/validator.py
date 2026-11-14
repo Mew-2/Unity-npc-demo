@@ -70,10 +70,9 @@ def validate_commands(commands: object, world: WorldSnapshot) -> list[str]:
             anchor = command.get("anchor")
 
             _check_entity(prefix, entity, entities, errors)
-            if anchor not in anchors:
+            # "player" 是动态目的地的伪锚点（走到玩家身边），不需要出现在 world.anchors 里
+            if anchor != "player" and anchor not in anchors:
                 errors.append(f"{prefix} move 锚点不存在：{anchor!r}")
-            elif anchor == "player":
-                errors.append(f"{prefix} move 不能用 player 作目的地")
 
         elif op == "look_at":
             entity = command.get("entity", "npc")

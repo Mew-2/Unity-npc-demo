@@ -133,34 +133,40 @@ public class NpcAgent : MonoBehaviour
         fromPlayer.y = 0f;
         var dir = fromPlayer.sqrMagnitude > 0.0001f ? fromPlayer.normalized : transform.forward;
 
-        // 停在玩家前方 0.75 米：够近能"面对面"，又不至于踩到玩家身上。
-        // 但这个点可能在床/家具里（玩家贴着床站时就会），所以按 0.75 / 1.0 / 1.3 三档逐个试栅格。
+        // 标准做法：先对"玩家所在位置"求路径，再把路径末端按 stopDistance 截断。
+        // 不要反过来先算一个偏移点再寻路——偏移点可能正好落在床里（实测 0.75m 就落在床体内），
+        // 而截断是在已经绕开障碍的路径上退，永远不会退到障碍里。
         if (pathfinder == null)
         {
             pathfinder = FindObjectOfType<GridPathfinder>();
         }
 
-        foreach (var distance in new[] { 0.75f, 1.0f, 1.3f })
+        const float stopDistance = 0.9f;
+        var fullPath = new List<Vector3>();
+        if (pathfinder != null && pathfinder.TryFindPath(transform.position, toPlayer, fullPath) && fullPath.Count >= 2)
         {
-            var candidate = toPlayer - dir * distance;
-            candidate.y = transform.position.y;
-            var probe = new List<Vector3>();
-            if (pathfinder != null && pathfinder.TryFindPath(transform.position, candidate, probe) && probe.Count >= 2)
+            var trimmed = TrimPathTail(fullPath, stopDistance);
+            if (trimmed.Count >= 2)
             {
-                GameLog.Event("walk_target", "to", "player", "via", $"grid@{distance:F2}",
-                    "point", $"{candidate.x:F2},{candidate.z:F2}");
-                WalkToPoint(candidate, "player");
+                GameLog.Event("walk_target", "to", "player", "via", $"grid+trim@{stopDistance:F2}",
+                    "point", $"{trimmed[trimmed.Count - 1].x:F2},{trimmed[trimmed.Count - 1].z:F2}");
+                StartMove(trimmed, "player");
                 return;
             }
+
+            // 已经比 stopDistance 更近：原地转身面对玩家即可
+            GameLog.Event("walk_target", "to", "player", "via", "already_close",
+                "dist", GameLog.F(FlatDistance(transform.position, toPlayer)));
+            TurnTo("player");
+            return;
         }
 
-        // 栅格全失败（房间被家具挤成 free=17 时很常见）：退回到"离玩家最近的锚点"，
-        // 这样至少能走到门口/床沿，和「去门口」一样可靠。
+        // 栅格不可用（房间被家具挤到 free=17 时很常见）：退到"离玩家最近的锚点"，走锚点图，
+        // 至少和「去门口」一样可靠。
         var bestAnchor = NearestAnchorTo(toPlayer);
         if (!string.IsNullOrEmpty(bestAnchor))
         {
-            GameLog.Event("walk_target", "to", "player", "via", "anchor:" + bestAnchor,
-                "dist", GameLog.F(Vector3.Distance(toPlayer, AnchorPosition(bestAnchor) ?? toPlayer)));
+            GameLog.Event("walk_target", "to", "player", "via", "anchor:" + bestAnchor);
             WalkTo(bestAnchor);
             return;
         }
@@ -169,6 +175,56 @@ public class NpcAgent : MonoBehaviour
         Debug.LogWarning("[NpcAgent] 过来：找不到任何可行目的地");
     }
 
+    /// <summary>把折线路径的末端按 distance 截断（从终点往回退），返回新的折线。</summary>
+    static List<Vector3> TrimPathTail(List<Vector3> path, float distance)
+    {
+        var result = new List<Vector3>(path);
+        var remaining = distance;
+        while (result.Count >= 2)
+        {
+            var last = result[result.Count - 1];
+            var prev = result[result.Count - 2];
+            var segment = FlatDistance(last, prev);
+            if (segment > remaining)
+            {
+                var dir = (prev - last);
+                dir.y = 0f;
+                var cut = last + dir.normalized * remaining;
+                cut.y = last.y;
+                result[result.Count - 1] = cut;
+                return result;
+            }
+
+            remaining -= segment;
+            result.RemoveAt(result.Count - 1);
+        }
+
+        return result;
+    }
+
+    /// <summary>直接按世界折线开始移动（"过来"这类动态目的地用）。</summary>
+    void StartMove(List<Vector3> points, string label)
+    {
+        if (_animationDriver == null)
+        {
+            _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
+        }
+
+        GameLog.Event(
+            "walk_accept",
+            "from", CurrentAnchorId,
+            "to", label,
+            "source", "grid",
+            "points", points.Count.ToString(),
+            "route", string.Join(";", points.ConvertAll(p => $"{p.x:F2},{p.z:F2}")));
+
+        if (_moveRoutine != null)
+        {
+            StopCoroutine(_moveRoutine);
+        }
+
+        _moveRoutine = StartCoroutine(MoveAlongPointsDispatch(points, label));
+    }
     /// <summary>找离某个世界坐标最近的锚点（用锚点距离，不用寻路距离）。</summary>
     string NearestAnchorTo(Vector3 position)
     {
