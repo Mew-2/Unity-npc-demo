@@ -93,9 +93,12 @@ public class NpcAgent : MonoBehaviour
         var path = graph.FindPath(CurrentAnchorId, anchorId);
         if (path.Count < 2)
         {
+            GameLog.Event("walk_reject", "from", CurrentAnchorId, "to", anchorId, "pathLen", path.Count.ToString());
             Debug.LogWarning($"[NpcAgent] 到不了 {anchorId}（不可达或已经在原地）");
             return;
         }
+
+        GameLog.Event("walk_accept", "from", CurrentAnchorId, "to", anchorId, "pathLen", path.Count.ToString());
 
         // 新指令覆盖旧指令：停掉上一次移动。
         if (_moveRoutine != null)

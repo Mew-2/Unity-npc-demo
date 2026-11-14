@@ -23,6 +23,9 @@ public static class ApartmentSceneBuilder
     static readonly Vector3 PlayerEuler = new Vector3(-2f, 0f, 0f);
     static readonly Vector3 StandUpPos = new Vector3(3.53f, 0.05f, 3.28f);
 
+    /// <summary>实验开关：把床整组藏掉，验证"她过不来"到底是床挡的还是逻辑问题。</summary>
+    const bool HideBedForTest = false;
+
     /// <summary>目标身高（米）：玩家 175cm → 站立视线 163cm；鲸鲸 162cm。</summary>
     const float PlayerEyeHeight = 1.63f;
     const float NpcHeight = 1.62f;
@@ -39,15 +42,19 @@ public static class ApartmentSceneBuilder
     {
     // 锚点全部放在"窗带"（床北侧 z≈3.2~3.5 的那条带，宽约 0.5m、长 2m）——
     // 绕床走位在物理上不成立（家具比房间还宽），所以改用"她本来就在窗前"的设定
-        new AnchorSpec { id = "front",  name = "床头边", desc = "你头侧的床沿，贴身说话的位置",   pos = new Vector3(3.53f, 0f, 3.20f) },
-        new AnchorSpec { id = "bed",    name = "床沿",   desc = "床北侧，靠窗的床沿",             pos = new Vector3(2.95f, 0f, 3.32f) },
-        new AnchorSpec { id = "desk",   name = "书桌边", desc = "靠西墙的书桌",                   pos = new Vector3(2.12f, 0f, 3.62f) },
-        new AnchorSpec { id = "window", name = "窗前",   desc = "落地窗西侧",                     pos = new Vector3(2.40f, 0f, 3.45f) },
+        new AnchorSpec { id = "front",  name = "床沿",   desc = "你头侧的床沿，探身说话的位置",   pos = new Vector3(3.53f, 0f, 3.20f) },
+        new AnchorSpec { id = "bed",    name = "床边",   desc = "床北侧靠窗的空地",               pos = new Vector3(2.60f, 0f, 3.35f) },
+        new AnchorSpec { id = "desk",   name = "书桌边", desc = "靠西墙的书桌",                   pos = new Vector3(2.15f, 0f, 3.55f) },
+        new AnchorSpec { id = "window", name = "窗前",   desc = "落地窗中间",                     pos = new Vector3(3.20f, 0f, 3.45f) },
+        // 绕床西侧的窄道途经点（床西沿 2.23 / 书桌东沿 2.03，中间约 0.2m，贴墙挤过去）
+        new AnchorSpec { id = "west",   name = "床侧过道", desc = "床和书桌之间的窄道",           pos = new Vector3(2.13f, 0f, 1.60f) },
+        new AnchorSpec { id = "door",   name = "门口",   desc = "主卧门，西墙靠南",               pos = new Vector3(2.05f, 0f, 0.68f) },
     };
 
     static readonly (string a, string b)[] Edges =
     {
-        ("desk", "window"), ("window", "bed"), ("bed", "front"),
+        ("desk", "bed"), ("bed", "window"), ("window", "front"),
+        ("desk", "west"), ("west", "door"),
     };
 
     /// <summary>
@@ -81,6 +88,26 @@ public static class ApartmentSceneBuilder
         }
 
         Debug.Log($"[Apartment] 收起地面靠垫：{hidden} 个");
+
+        if (HideBedForTest)
+        {
+            var beds = 0;
+            foreach (var t in Object.FindObjectsOfType<Transform>())
+            {
+                if (!t.gameObject.activeInHierarchy || !InBedroom(t))
+                {
+                    continue;
+                }
+
+                if (t.name.StartsWith("Bed_Bedroom", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    t.gameObject.SetActive(false);
+                    beds++;
+                }
+            }
+
+            Debug.LogWarning($"[Apartment] 实验模式：床已隐藏（{beds} 个对象），用于验证通行");
+        }
     }
 
     /// <summary>向上三层查父级名字里有没有 BEDROOM（家具的层级是 ..._LOD &lt; BEDROOM）。</summary>
@@ -161,12 +188,16 @@ public static class ApartmentSceneBuilder
         var player = playerGo.AddComponent<PlayerController>();
         player.cameraTransform = camera.transform;
         player.startSeated = true;
-        player.seatedHeight = 1.00f;
+        player.allowMovement = true;
+        player.seatedHeight = 0.90f;
         player.standingHeight = PlayerEyeHeight;
-        player.standUpPosition = StandUpPos;
+        // 实验：不再起身瞬移，原地站起来（床已隐藏，不会被顶出去）
+        player.standUpPosition = PlayerPos;
 
         // 2) 玩法根
         var root = new GameObject("Game");
+        var stamp = root.AddComponent<SceneStamp>();
+        stamp.buildId = System.DateTime.Now.ToString("MMdd-HHmmss");
 
         var anchorsGo = new GameObject("Anchors");
         anchorsGo.transform.SetParent(root.transform, false);
