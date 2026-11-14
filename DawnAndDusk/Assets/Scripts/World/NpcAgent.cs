@@ -67,6 +67,9 @@ public class NpcAgent : MonoBehaviour
     /// <summary>是否正在刹车（快到终点），状态机用它切收势片段。</summary>
     public bool IsBraking { get; private set; }
 
+    /// <summary>刹车进度 0~1（1 = 刚进刹车窗口，0 = 已经到点）。供播放速率做线性收速。</summary>
+    public float BrakeRatio => _brakeRatio;
+
     Coroutine _moveRoutine;
     NpcAnimationDriver _animationDriver;
     float _currentSpeed;   // 当前实际速度 m/s
@@ -81,6 +84,9 @@ public class NpcAgent : MonoBehaviour
     int _speedFrames;
     float _speedMax;
     float _speedSum;
+
+    float _brakeDistance = 0.12f;
+    float _brakeRatio = 1f;
 
     void Awake()
     {
@@ -272,9 +278,13 @@ public class NpcAgent : MonoBehaviour
             while (true)
             {
                 var remaining = FlatDistance(transform.position, goal);
-                // root motion 模式下不能用"还剩 0.3m 就刹车"——一进 WalkStop 就没有位移了，
-                // 会停在离目标半米的地方。只在最后 12cm 才收势
-                IsBraking = decelTime > 0.001f && remaining < 0.12f;
+
+                // 刹车窗口按"当前速度 × 刹车时长"算，并限制在 0.15~0.45m：
+                // 之前是"固定最后 12cm 才开始刹"，但刹车把播放速率压到 0.15，
+                // 位移跟着掉到 0.13 m/s，于是最后 10cm 要爬 0.6 秒——观感就是子弹时间。
+                _brakeDistance = Mathf.Clamp(Mathf.Max(_currentSpeed, 0.4f) * decelTime, 0.15f, 0.45f);
+                _brakeRatio = Mathf.Clamp01(remaining / Mathf.Max(_brakeDistance, 0.001f));
+                IsBraking = decelTime > 0.001f && remaining < _brakeDistance;
 
                 // 实际速度用位移反推，供动画驱动和日志使用
                 var moved = FlatDistance(transform.position, lastPosition);

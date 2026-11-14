@@ -11,6 +11,12 @@ public class NpcAnimationDriver : MonoBehaviour
     public NpcAgent npc;
     public KawaiiMotionProfile profile;
 
+    [Tooltip("起步片段播放倍速：0.8 秒的抬脚段原速播放观感偏慢，1.3~1.5 更像真的迈步")]
+    public float startPlayback = 1.35f;
+
+    [Tooltip("收势片段播放倍速：1.0 秒的停步段原速播放会像慢动作，1.4~1.6 更利落")]
+    public float stopPlayback = 1.5f;
+
     Animator _animator;
     float _speed;
     float _speedScale = 1f;
@@ -68,14 +74,21 @@ public class NpcAnimationDriver : MonoBehaviour
 
         var state = _animator.GetCurrentAnimatorStateInfo(0);
         CurrentStateName = NameOf(state);
+
+        // 起步/收势都是"短位移、长时长"的过渡片段，原速播放看起来像慢动作。
+        // 用 Animator.speed 提倍速（根位移同比加快，步幅不变），正常走路时恢复 1
+        _animator.speed = CurrentStateName == "WalkStart"
+            ? Mathf.Max(0.1f, startPlayback)
+            : CurrentStateName == "WalkStop"
+                ? Mathf.Max(0.1f, stopPlayback)
+                : 1f;
         var normalized = Mathf.Repeat(state.normalizedTime, 1f);
         _speedScale = profile != null ? profile.Scale(CurrentStateName, normalized) : 1f;
 
         // 播放速率只跟"刹车"走。不要用 body/expected 反推——那会和状态机形成死锁：
         // 速率低 → 进 WalkStop → 片段步速归零 → 身体掉到保底速度 → 速率更低（实测卡在 0.08 m/s）
-        SpeedRatio = npc.IsBraking
-            ? Mathf.Clamp(npc.CurrentSpeed / Mathf.Max(npc.moveSpeed, 0.01f), 0.15f, 1f)
-            : 1f;
+        // 下限从 0.15 提到 0.6：0.15 会让最后 10cm 爬 0.6 秒，看着像子弹时间
+        SpeedRatio = npc.IsBraking ? Mathf.Lerp(0.6f, 1f, npc.BrakeRatio) : 1f;
 
         // Speed 参数表示"移动意图"：状态机靠它决定进/出走路，不再和实际速度互相依赖
         var target = npc.IsMoving ? 1f : 0f;
