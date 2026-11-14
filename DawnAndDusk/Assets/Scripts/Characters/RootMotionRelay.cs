@@ -40,6 +40,12 @@ public class RootMotionRelay : MonoBehaviour
     [Tooltip("过渡日志的采样间隔（秒）")]
     public float seamLogInterval = 0.05f;
 
+    [Tooltip("根位移速度上限（m/s），0 = 不限。\n" +
+             "实测 WalkStart→Walk 接缝会多拖约 0.10m（两段姿态的根偏移不闭合，与混合时长无关），\n" +
+             "限速把这截尖峰削平；代价是少走那 0.10m，由到站吸附兜住。\n" +
+             "1.35 ≈ 1.3 倍巡航速度，正常走路不会被削")]
+    public float maxSpeed = 1.35f;
+
     Animator _animator;
     float _logTimer;
     float _deltaSum;
@@ -54,6 +60,10 @@ public class RootMotionRelay : MonoBehaviour
     float _seamTimer;
     float _seamSum;
     int _seamFrames;
+
+    float _clampTimer;
+    float _clampCut;
+    int _clampCount;
 
     void Awake()
     {
@@ -73,6 +83,7 @@ public class RootMotionRelay : MonoBehaviour
 
         var delta = _animator.deltaPosition * scale;
 
+        ClampDelta(ref delta);
         TrackStall(delta);
         if (seamLog)
         {
@@ -156,6 +167,48 @@ public class RootMotionRelay : MonoBehaviour
         };
         AppendAnimator(kv);
         GameLog.Event("rm_stall", kv.ToArray());
+    }
+
+    /// <summary>
+    /// 根位移限速：把混合期"姿态偏移被当成位移"的尖峰削平。
+    /// 只在超过 maxSpeed 时生效，正常走路（约 1.03 m/s）不会被削。
+    /// </summary>
+    void ClampDelta(ref Vector3 delta)
+    {
+        if (maxSpeed <= 0.001f)
+        {
+            return;
+        }
+
+        var maxDelta = maxSpeed * Time.deltaTime;
+        var flat = new Vector2(delta.x, delta.z);
+        var magnitude = flat.magnitude;
+        if (magnitude <= maxDelta || maxDelta <= 0.00001f)
+        {
+            return;
+        }
+
+        var k = maxDelta / magnitude;
+        delta.x *= k;
+        delta.z *= k;
+
+        _clampTimer += Time.deltaTime;
+        _clampCut += magnitude - maxDelta;
+        _clampCount++;
+        if (_clampTimer < 0.5f)
+        {
+            return;
+        }
+
+        GameLog.Event(
+            "rm_clamp",
+            "cut", GameLog.F(_clampCut),
+            "frames", _clampCount.ToString(),
+            "state", StateName(_animator.GetCurrentAnimatorStateInfo(0)),
+            "trans", _animator.IsInTransition(0) ? "1" : "0");
+        _clampTimer = 0f;
+        _clampCut = 0f;
+        _clampCount = 0;
     }
 
     /// <summary>

@@ -121,3 +121,45 @@ Tools → DawnAndDusk → Build Apartment Demo      # 生成 ApartmentDemo.unity
 
 > 注意：`ProjectSettings` 里的质量档当前是 **High Fidelity**（URP-HighFidelity，MSAA 4x）；
 > Game 视图记得取消 `Low Resolution Aspect Ratios`，否则画面和 UI 都会糊。
+
+## 8. 2026-11-15 动画接缝专项（结论 + 待办）
+
+### 8.1 走路卡死的根因（已修）
+
+`KawaiiAnimatorBuilder.SetLoop()` 用的是 `AnimationUtility.SetAnimationClipSettings`，
+对 **FBX 导入片段只改内存对象、不写回 `.meta`**，所以 Idle/Walk 播一遍就钳在末帧：
+Walk 停住 = 根位移归零、人卡在半路；Idle 停住 = "转过去后呼吸停"。
+已改为直接写 `ModelImporter.clipAnimations[].loopTime` + `SaveAndReimport()`，
+`KawaiiAnimatorVerifier` 新增 2.1 节断言（Idle/Walk/Sit 必须 loop，Start/Stop 必须不 loop）。
+
+同批修复：`Animator.CrossFade(name, duration)` 的 duration 是**归一化时间**（Idle 6.67 秒 ⇒ 0.1 实为 0.67 秒），
+`WalkStart` 因此常常进场就跨过 `exitTime=0.8`，起步片段播到末帧才切——改用 `CrossFadeInFixedTime`。
+
+### 8.2 接缝多拖位移（已量化，修法已上）
+
+实测每次 `WalkStart → Walk` 会多走约 **0.10 米**，且与混合时长无关：
+
+| 混合时长 | 接缝窗口位移 | 峰值 |
+|---|---|---|
+| 0.30 s | 0.358 / 0.373 m | 1.5~1.6 m/s |
+| 0.15 s | 0.225 / 0.227 m | 1.9~2.48 m/s |
+
+用「固定偏移 + 步速 × 窗口」拟合得 F ≈ 0.095 m、v ≈ 1.08 m/s（两个窗口解出同一组值）⇒
+**两段片段的根偏移不闭合，混合时这段差值被当成位移拖过去**（不是两段叠加）。
+峰值 ≈ `F/窗口 + 步速`，所以混合越短越"猛"。
+
+当前措施：`RootMotionRelay.maxSpeed = 1.35`（限速削峰，少走的 0.10m 由到站吸附兜住）。
+**根治**：跑 `Tools → DawnAndDusk → Analyze Kawaii Clips`，看各片段"首帧/末帧根平面偏移"，
+把 `WaveStart` 的裁剪末帧挪到与 `Walk` 首帧偏移一致的位置，然后可把混合调回 0.15~0.2。
+
+### 8.3 调试工具
+
+| 工具 | 用途 |
+|---|---|
+| `Logs/game.jsonl` | 10 Hz 结构化日志（anim / rootmotion / seam / rm_stall / move_stall / walk_end…） |
+| `tools/walk-excess.ps1` | 对比路径折线与身体累计位移，输出超量 / 百分比 / 峰值 |
+| `seam` 事件 | 过渡期间每 0.05s 的根位移窗口（cur/next/tNorm/sum/v） |
+| `rm_clamp` 事件 | 限速削掉了多少（cut） |
+| `rm_stall` 事件 | 走路状态且根位移为 0 时的 Animator 全量快照 |
+
+> 注意：`GameLog` 的时间戳键是 `t`，业务字段不要再用 `t`（曾把时间戳覆盖成"走了几秒"，已改 `walkSec`）。
