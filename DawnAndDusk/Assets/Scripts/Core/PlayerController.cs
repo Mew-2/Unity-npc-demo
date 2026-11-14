@@ -32,6 +32,7 @@ public class PlayerController : MonoBehaviour
     CharacterController _controller;
     float _vertical;
     bool _seated;
+    float _logTimer;
 
     void Awake()
     {
@@ -61,6 +62,7 @@ public class PlayerController : MonoBehaviour
             // 起身：挪到床边空地再打开碰撞
             transform.position = standUpPosition;
             _controller.enabled = true;
+            _vertical = -2f;   // 关键：清掉坐姿期间累积的重力速度
             _seated = false;
             GameLog.Event("player_stand", "at", standUpPosition.ToString());
         }
@@ -69,13 +71,23 @@ public class PlayerController : MonoBehaviour
         var direction = (transform.right * input.x + transform.forward * input.y).normalized;
         var planar = _seated ? Vector3.zero : direction * (speed * input.magnitude);
 
-        if (_controller.isGrounded && _vertical < 0f)
+        // 坐着的时候控制器是关的，Move 不生效——但重力不能继续累积：
+        // 坐 60 秒 = -720 m/s，起身那一帧 Move 会往下扎两米，CharacterController 只能把人往床面上/天花板上弹，
+        // 表现就是"随便一走就被床顶起来""起身比门还高"。
+        if (!_seated && _controller.enabled)
         {
-            _vertical = -2f;
-        }
+            if (_controller.isGrounded && _vertical < 0f)
+            {
+                _vertical = -2f;
+            }
 
-        _vertical += gravity * Time.deltaTime;
-        _controller.Move((planar + Vector3.up * _vertical) * Time.deltaTime);
+            _vertical += gravity * Time.deltaTime;
+            _controller.Move((planar + Vector3.up * _vertical) * Time.deltaTime);
+        }
+        else
+        {
+            _vertical = 0f;
+        }
 
         if (cameraTransform != null)
         {
@@ -83,6 +95,22 @@ public class PlayerController : MonoBehaviour
             var p = cameraTransform.localPosition;
             p.y = Mathf.MoveTowards(p.y, target, heightLerpSpeed * Time.deltaTime);
             cameraTransform.localPosition = p;
+        }
+
+        // 玩家自身状态 1Hz：位置/垂直速度/是否着地/控制器开关——
+        // 以后判断"被顶起来"是不是自己造成的，不用再猜
+        _logTimer += Time.deltaTime;
+        if (_logTimer >= 1f)
+        {
+            _logTimer = 0f;
+            GameLog.Event(
+                "player",
+                "pos", $"{transform.position.x:F2},{transform.position.y:F2},{transform.position.z:F2}",
+                "v", GameLog.F(_vertical),
+                "grounded", _controller.isGrounded ? "1" : "0",
+                "ctrl", _controller.enabled ? "1" : "0",
+                "seated", _seated ? "1" : "0",
+                "camY", cameraTransform != null ? GameLog.F(cameraTransform.position.y) : "-");
         }
     }
 }
