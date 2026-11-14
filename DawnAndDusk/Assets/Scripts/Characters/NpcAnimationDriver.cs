@@ -67,10 +67,11 @@ public class NpcAnimationDriver : MonoBehaviour
         var normalized = Mathf.Repeat(state.normalizedTime, 1f);
         _speedScale = profile != null ? profile.Scale(CurrentStateName, normalized) : 1f;
 
-        // 播放速率 = 实际身体速度 / 片段在该相位的应有速度。
-        // 直走时 ≈1，刹车时随之变慢，脚就不会比地面快（这是消掉"停止滑步"的关键）
-        var expected = npc.moveSpeed * Mathf.Max(_speedScale, 0.05f);
-        SpeedRatio = Mathf.Clamp(npc.CurrentSpeed / Mathf.Max(expected, 0.01f), 0f, 1.5f);
+        // 播放速率只跟"刹车"走。不要用 body/expected 反推——那会和状态机形成死锁：
+        // 速率低 → 进 WalkStop → 片段步速归零 → 身体掉到保底速度 → 速率更低（实测卡在 0.08 m/s）
+        SpeedRatio = npc.IsBraking
+            ? Mathf.Clamp(npc.CurrentSpeed / Mathf.Max(npc.moveSpeed, 0.01f), 0.15f, 1f)
+            : 1f;
 
         // Speed 参数表示"移动意图"：状态机靠它决定进/出走路，不再和实际速度互相依赖
         var target = npc.IsMoving ? 1f : 0f;

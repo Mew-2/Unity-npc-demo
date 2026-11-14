@@ -18,10 +18,10 @@ public static class ApartmentSceneBuilder
     const string VrmPath = "Assets/Characters/DeepSeekChan/DeepSeek-chan.vrm";
     static readonly string OutDir = Path.Combine(Application.dataPath, "../dsh-apartment-shots");
 
-    // 玩家开局躺在床上（相机 1.00m），按移动键起身到床尾空地
-    static readonly Vector3 PlayerPos = new Vector3(3.45f, 0.05f, 2.05f);
-    static readonly Vector3 PlayerEuler = new Vector3(-1f, 0f, 0f);
-    static readonly Vector3 StandUpPos = new Vector3(3.30f, 0.05f, 0.50f);
+    // 玩家躺在床上（床身 z 0.90~3.14 的南半部，离窗 2.1m），起身后站到床沿北侧的窗带里
+    static readonly Vector3 PlayerPos = new Vector3(3.53f, 0.05f, 1.55f);
+    static readonly Vector3 PlayerEuler = new Vector3(-6f, 0f, 0f);
+    static readonly Vector3 StandUpPos = new Vector3(3.53f, 0.05f, 3.28f);
 
     /// <summary>目标身高（米）：玩家 175cm → 站立视线 163cm；鲸鲸 162cm。</summary>
     const float PlayerEyeHeight = 1.63f;
@@ -60,35 +60,24 @@ public static class ApartmentSceneBuilder
     {
         var moved = 0;
 
-        // 只做"把掉在地上的靠垫放回床上"这一处清理；书桌/椅子/竹篮保持原样
-        // （房间净宽 3.52m，书桌+床+床头柜合计 3.56m，挪动换不出通道，挪了反而更怪）
-        var plan = new (string prefix, Vector3 target, float yaw)[]
+        // 掉在地上的两个靠垫直接收起来（怎么摆都容易和床面穿插/悬空），书桌椅子保持原样
+        var hide = new[] { "Bed_Bedroom_Pillow6", "Bed_Bedroom_Pillow7" };
+        var hidden = 0;
+        foreach (var t in Object.FindObjectsOfType<Transform>())
         {
-            ("Bed_Bedroom_Pillow6", new Vector3(3.10f, 0.42f, 1.60f), 0f),
-            ("Bed_Bedroom_Pillow7", new Vector3(3.30f, 0.42f, 1.45f), 0f),
-        };
-
-        foreach (var (prefix, target, yaw) in plan)
-        {
-            foreach (var t in Object.FindObjectsOfType<Transform>())
+            if (!t.gameObject.activeInHierarchy || !InBedroom(t))
             {
-                if (!t.gameObject.activeInHierarchy || !InBedroom(t))
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                if (!t.name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                t.position = target;
-                t.rotation = Quaternion.Euler(0f, yaw, 0f);
-                moved++;
+            if (hide.Any(h => t.name.StartsWith(h, System.StringComparison.OrdinalIgnoreCase)))
+            {
+                t.gameObject.SetActive(false);
+                hidden++;
             }
         }
 
-        Debug.Log($"[Apartment] 主卧物件归位：{moved} 个");
+        Debug.Log($"[Apartment] 收起地面靠垫：{hidden} 个");
     }
 
     /// <summary>向上三层查父级名字里有没有 BEDROOM（家具的层级是 ..._LOD &lt; BEDROOM）。</summary>
