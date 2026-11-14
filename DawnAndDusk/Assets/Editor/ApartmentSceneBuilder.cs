@@ -191,6 +191,22 @@ public static class ApartmentSceneBuilder
             }
         }
 
+        // 资材包自带的演示脚本（CameraZoom / Trigger_Volume / Controller_Switch 等）依赖它自己的相机与 UI，
+        // 在我们的场景里会每帧抛 NullReferenceException —— 全部关掉
+        var disabledPackScripts = 0;
+        foreach (var behaviour in Object.FindObjectsOfType<MonoBehaviour>())
+        {
+            var typeName = behaviour.GetType().Name;
+            if (typeName == "CameraZoom" || typeName == "FirstPersonAIO" || typeName == "Trigger_Volume"
+                || typeName == "Controller_Switch" || typeName == "rotateonmouse")
+            {
+                behaviour.enabled = false;
+                disabledPackScripts++;
+            }
+        }
+
+        Debug.Log($"[Apartment] 关闭资材包演示脚本：{disabledPackScripts} 个");
+
         var camera = Object.FindObjectsOfType<Camera>().OrderByDescending(c => c.depth).FirstOrDefault();
         if (camera == null)
         {

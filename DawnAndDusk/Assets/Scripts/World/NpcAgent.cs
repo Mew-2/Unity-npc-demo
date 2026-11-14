@@ -251,8 +251,9 @@ public class NpcAgent : MonoBehaviour
             while (true)
             {
                 var remaining = FlatDistance(transform.position, goal);
-                var brakeDistance = Mathf.Max(0.05f, moveSpeed * decelTime);
-                IsBraking = decelTime > 0.001f && remaining < brakeDistance;
+                // root motion 模式下不能用"还剩 0.3m 就刹车"——一进 WalkStop 就没有位移了，
+                // 会停在离目标半米的地方。只在最后 12cm 才收势
+                IsBraking = decelTime > 0.001f && remaining < 0.12f;
 
                 // 实际速度用位移反推，供动画驱动和日志使用
                 var moved = FlatDistance(transform.position, lastPosition);
@@ -301,6 +302,12 @@ public class NpcAgent : MonoBehaviour
             }
 
             CurrentAnchorId = targetAnchor;
+        }
+
+        // 收尾吸附：根位移不可控，走到最后一小段时直接对齐目标，避免"停在离目标 20cm 处"
+        if (FlatDistance(transform.position, goal) < 0.35f)
+        {
+            transform.position = new Vector3(goal.x, transform.position.y, goal.z);
         }
 
         _currentSpeed = 0f;
