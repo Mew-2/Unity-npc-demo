@@ -136,6 +136,8 @@
   - 同一个根因还解释了另外两个久拖的问题：**Idle 播一遍停住 = "转过去后呼吸停"**；Walk 播一遍停住 = **"中途卡死 / 起步像平移"**。
   - 修：新增 `EnsureLoopSettings()`，直接改 `ModelImporter.clipAnimations[].loopTime` + `SaveAndReimport()`；`KawaiiAnimatorVerifier` 新增 2.1 节断言 Idle/Walk/Sit 必须 loop、Start/Stop 必须不 loop。
   - 同时把 `Walk→WalkStop` 条件由 `SpeedRatio<0.25` 改成 `Speed<0.3`（看移动意图，不看播放速率），并在 verifier 里同步改断言。
+  - 第二个根因（同一晚从日志里挖出来的）：`AnimatorStateTransition.duration` 在 `hasFixedDuration=false`（默认）时按**归一化时间**解释。`Idle→WalkStart` 写的是 0.1，实测混了约 **0.6 秒**，长到把 `WalkStart→Walk` 的退出时间点（0.8）整个跨过去——进场时 `nt=0.829`，exit time 再也不会被"穿过"，起步片段一路播到末帧才切 Walk。修：给所有过渡统一 `hasFixedDuration = true`，让 `duration` 就是秒。
+  - 由此得到一条通用结论：**根位移消失前先看 `nt` 是否已经越过片段长度**。`nt>1 且长度没变`= 片段播完钳在末帧，不是动画系统坏了。
 
 ## 当前卡点
 

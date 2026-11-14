@@ -202,6 +202,24 @@ public static class KawaiiAnimatorBuilder
             bowBack.duration = 0.2f;
         }
 
+        // Unity 里 duration 默认按"归一化时间"解释（hasFixedDuration=false）。
+        // 实测：Idle→WalkStart 写 0.1，实际混了约 0.6 秒——长到把 WalkStart 的退出时间点
+        // （0.8）直接跨过去：进场时 nt 已经是 0.829，exit time 永远不会被"穿过"，
+        // 于是起步片段一路播到末帧才切 Walk（= 起步那 0.6 秒里根位移先有后无）。
+        // 统一改成固定时长（单位秒），让 duration 就是秒。
+        foreach (var state in machine.states)
+        {
+            foreach (var transition in state.state.transitions)
+            {
+                transition.hasFixedDuration = true;
+            }
+        }
+
+        foreach (var transition in machine.anyStateTransitions)
+        {
+            transition.hasFixedDuration = true;
+        }
+
         BuildProfile(walk, walkStart, walkStop, pivot);
 
         AssetDatabase.SaveAssets();
