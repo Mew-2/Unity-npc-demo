@@ -92,8 +92,10 @@ public static class ApartmentSceneBuilder
             // 只关"床体本身"：名字含 Bed（排除 Bedside），且包围盒横向跨度小于 2.8m（地板/天花板跨度更大）、
             // 竖向范围落在床铺高度内——之前用地板中心判据把整块地板都关掉了
             var bedBox = new Bounds(new Vector3(3.5f, 0.5f, 2.0f), new Vector3(2.8f, 1.6f, 2.5f));
-            var skipWords = new[] { "Floor", "Ceiling", "Skirting", "Carpet", "Rug", "Wall" };
+            // Chair 也要排除：椅子高度 0.9m、中心常落在床铺包围盒里，之前被这条"床体"判据连带关掉了渲染器
+            var skipWords = new[] { "Floor", "Ceiling", "Skirting", "Carpet", "Rug", "Wall", "Chair" };
             var hiddenRenderers = 0;
+            var hiddenNames = new System.Collections.Generic.List<string>();
             foreach (var r in Object.FindObjectsOfType<Renderer>().Where(r => r.enabled))
             {
                 if (!InBedroom(r.transform))
@@ -118,6 +120,10 @@ public static class ApartmentSceneBuilder
                 {
                     r.enabled = false;
                     hiddenRenderers++;
+                    if (hiddenNames.Count < 12)
+                    {
+                        hiddenNames.Add(name);
+                    }
                 }
             }
 
@@ -130,6 +136,11 @@ public static class ApartmentSceneBuilder
                     continue;
                 }
 
+                if (c.name.IndexOf("Chair", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    continue;
+                }
+
                 var b = c.bounds;
                 if (bedBox.Contains(b.center) && b.size.y > 0.2f && Mathf.Max(b.size.x, b.size.z) < 2.8f)
                 {
@@ -138,7 +149,8 @@ public static class ApartmentSceneBuilder
                 }
             }
 
-            Debug.LogWarning($"[Apartment] 实验模式：床已隐藏（{hiddenRenderers} 个渲染器 / {hiddenColliders} 个碰撞体）");
+            Debug.LogWarning($"[Apartment] 实验模式：床已隐藏（{hiddenRenderers} 个渲染器 / {hiddenColliders} 个碰撞体）\n" +
+                             $"  被关掉的渲染器：{string.Join(", ", hiddenNames)}");
         }
     }
 
