@@ -314,8 +314,11 @@ public class NpcAgent : MonoBehaviour
         IsBraking = false;
         IsMoving = false;
         _moveRoutine = null;
-        GameLog.Event("walk_end", "anchor", CurrentAnchorId, "elapsed", GameLog.F(_elapsed));
-        Debug.Log($"[NpcAgent] 到达 {CurrentAnchorId}");
+
+        // 只有真正到达才说"到达"；超时/冲过头要如实记录
+        var reached = FlatDistance(transform.position, goal) < 0.4f;
+        GameLog.Event("walk_end", "anchor", CurrentAnchorId, "elapsed", GameLog.F(_elapsed), "reached", reached ? "1" : "0");
+        Debug.Log(reached ? $"[NpcAgent] 到达 {CurrentAnchorId}" : $"[NpcAgent] 未到达 {CurrentAnchorId}");
     }
 
     IEnumerator MoveAlongPoints(List<Vector3> points, string targetAnchor)

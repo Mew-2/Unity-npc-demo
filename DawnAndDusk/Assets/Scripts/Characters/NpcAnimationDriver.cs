@@ -84,8 +84,9 @@ public class NpcAnimationDriver : MonoBehaviour
         _animator.SetBool("Braking", npc.IsBraking);
 
         // 兜底：已经完全停下但状态机卡在走路状态。
-        // 注意必须避开"过渡中"——每帧都 CrossFade 会把过渡不断重置，状态永远退不出去（实测踩过）。
-        if (!npc.IsMoving && _speed < 0.01f && !_animator.IsInTransition(0))
+        // root motion 模式下不能做这件事——它会把正在走路的她切回 Idle，
+        // 而 Idle 没有根位移，人就"卡在半路不动"（实测踩过）
+        if (!npc.useRootMotion && !npc.IsMoving && _speed < 0.01f && !_animator.IsInTransition(0))
         {
             var current = _animator.GetCurrentAnimatorStateInfo(0);
             if (current.IsName("Walk") || current.IsName("WalkStart")
@@ -94,6 +95,13 @@ public class NpcAnimationDriver : MonoBehaviour
                 GameLog.Event("forced_idle", "from", CurrentStateName, "norm", GameLog.F(current.normalizedTime));
                 _animator.CrossFade("Idle", 0.2f);
             }
+        }
+
+        // 反向兜底：该走却在 Idle（例如被别的逻辑切走了）→ 拉回走路状态
+        if (npc.useRootMotion && npc.IsMoving && CurrentStateName == "Idle" && !_animator.IsInTransition(0))
+        {
+            GameLog.Event("forced_walk", "from", CurrentStateName);
+            _animator.CrossFade("WalkStart", 0.1f);
         }
 
         _logTimer += Time.deltaTime;
