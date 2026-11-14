@@ -34,6 +34,12 @@ public class RootMotionRelay : MonoBehaviour
     [Tooltip("卡死期间最多记几条快照（每秒一条）")]
     public int stallMaxLogs = 5;
 
+    [Tooltip("过渡期间按 20Hz 记录每帧根位移：用来判断接缝多走的位移是叠加还是姿态泄漏")]
+    public bool seamLog = true;
+
+    [Tooltip("过渡日志的采样间隔（秒）")]
+    public float seamLogInterval = 0.05f;
+
     Animator _animator;
     float _logTimer;
     float _deltaSum;
@@ -44,6 +50,10 @@ public class RootMotionRelay : MonoBehaviour
     float _lastLogAt;      // 上次快照时的 _stallWindow
     int _stallLogs;
     bool _stallActive;
+
+    float _seamTimer;
+    float _seamSum;
+    int _seamFrames;
 
     void Awake()
     {
@@ -64,6 +74,10 @@ public class RootMotionRelay : MonoBehaviour
         var delta = _animator.deltaPosition * scale;
 
         TrackStall(delta);
+        if (seamLog)
+        {
+            TrackSeam(delta);
+        }
 
         // 诊断：每 0.5 秒把"这一小段收到的位移"和根位移开关状态写进日志
         _logTimer += Time.deltaTime;
@@ -142,6 +156,47 @@ public class RootMotionRelay : MonoBehaviour
         };
         AppendAnimator(kv);
         GameLog.Event("rm_stall", kv.ToArray());
+    }
+
+    /// <summary>
+    /// 过渡期间按固定间隔记录"这段窗口里根位移一共走了多少"。
+    /// 用来分辨接缝多出的位移是「两段根位移叠加」还是「姿态偏移被当成位移」：
+    /// 前者总量随混合窗口变长而变大，后者总量恒定（等于两段姿态的根偏移差）。
+    /// </summary>
+    void TrackSeam(Vector3 delta)
+    {
+        if (!_animator.IsInTransition(0))
+        {
+            _seamTimer = 0f;
+            _seamSum = 0f;
+            _seamFrames = 0;
+            return;
+        }
+
+        var dt = Time.deltaTime;
+        _seamTimer += dt;
+        _seamSum += delta.magnitude;
+        _seamFrames++;
+
+        if (_seamTimer < seamLogInterval)
+        {
+            return;
+        }
+
+        var transition = _animator.GetAnimatorTransitionInfo(0);
+        GameLog.Event(
+            "seam",
+            "cur", StateName(_animator.GetCurrentAnimatorStateInfo(0)),
+            "next", StateName(_animator.GetNextAnimatorStateInfo(0)),
+            "tNorm", GameLog.F(transition.normalizedTime),
+            "tDur", GameLog.F(transition.duration),
+            "sum", GameLog.F(_seamSum),
+            "frames", _seamFrames.ToString(),
+            "v", GameLog.F(_seamTimer > 0.0001f ? _seamSum / _seamTimer : 0f));
+
+        _seamTimer = 0f;
+        _seamSum = 0f;
+        _seamFrames = 0;
     }
 
     bool IsWalkingState()

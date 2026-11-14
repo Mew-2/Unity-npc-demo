@@ -145,6 +145,19 @@
   - `moveSpeed` / `strideScale` / `accelTime` / `decelTime` 归入「回退模式（没有 controller 时自动启用）」；`strideScale` 的 Tooltip 明确写「root motion 下无效，真正缩放根位移的是 Visual 上 `RootMotionRelay.scale`」
   - 分流改成自动：没有 Animator Controller（公开仓库 clone 没有授权资产）时自动走代码驱动并记 `walk_fallback`；之前 useRootMotion=true 又没 controller 时会原地站满 12 秒再报超时
   - `probeStallRecovery` 默认关闭：根因（loopTime / CrossFade 归一化时长）已修，探针只在排查时手动开
+- **2026-11-15 02:40 A/B 实验：接缝多走的位移是「叠加」还是「姿态偏移泄漏」**
+  - 现象：整段路身体累计位移比路径折线长。基线（`WalkStart→Walk` 混合 0.15s）实测
+    `bed→door` 3.14m 走 3.23m（+0.08，2.6%）；`door→window` 3.43m 走 3.62m（+0.19，5.5%），
+    接缝峰值 2.36 m/s，而两个片段本身的根速上限只有 0.90 / 1.27 m/s —— 说明多出来的位移不是动作里的。
+  - 两个候选：①过渡期源/目标根位移叠加（超量随混合窗口变长而涨）；②两段姿态的根偏移不闭合，
+    混合时被当成位移（超量恒定，约等于偏移差）。旁证：0.19 ≈ `WalkStart` 末帧根偏移 0.38m 的一半。
+  - 实验装置：`KawaiiAnimatorBuilder.StartToWalkBlend` 常数（0.15 基线 → 0.30 对照）；
+    `RootMotionRelay.seamLog` 按 0.05s 记录过渡窗口内的根位移总量与速度；
+    `tools/walk-excess.ps1` 对比「路径折线长度」与「身体累计位移」，输出超量与峰值。
+  - 判据：换 0.30 后同两条路各跑一次，超量若仍是 0.08/0.19 ⇒ 姿态偏移泄漏；
+    若明显变大 ⇒ 根位移叠加。
+  - 参考：掘金《Unity Root Motion 开发详解》把「角色突然瞬移」归因为「动画首尾帧位移未闭合」，
+    与假设②一致；其「滑步 = 按比例缩放 deltaPosition」对应 `RootMotionRelay.scale`。
 ## 当前卡点
 
 - **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟。已用空场景 bisect 验证**与 VRM 无关**（空场景进 Play 再退同样卡），是这台机器/这个版本 Unity 的退出行为，先用任务管理器结束，低优先级。
