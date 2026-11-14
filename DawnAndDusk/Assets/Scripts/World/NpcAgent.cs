@@ -133,9 +133,74 @@ public class NpcAgent : MonoBehaviour
         fromPlayer.y = 0f;
         var dir = fromPlayer.sqrMagnitude > 0.0001f ? fromPlayer.normalized : transform.forward;
 
-        // 停在玩家前方 0.75 米：够近能"面对面"，又不至于踩到玩家身上
-        var stop = toPlayer - dir * 0.75f;
-        WalkToPoint(stop, "player");
+        // 停在玩家前方 0.75 米：够近能"面对面"，又不至于踩到玩家身上。
+        // 但这个点可能在床/家具里（玩家贴着床站时就会），所以按 0.75 / 1.0 / 1.3 三档逐个试栅格。
+        if (pathfinder == null)
+        {
+            pathfinder = FindObjectOfType<GridPathfinder>();
+        }
+
+        foreach (var distance in new[] { 0.75f, 1.0f, 1.3f })
+        {
+            var candidate = toPlayer - dir * distance;
+            candidate.y = transform.position.y;
+            var probe = new List<Vector3>();
+            if (pathfinder != null && pathfinder.TryFindPath(transform.position, candidate, probe) && probe.Count >= 2)
+            {
+                GameLog.Event("walk_target", "to", "player", "via", $"grid@{distance:F2}",
+                    "point", $"{candidate.x:F2},{candidate.z:F2}");
+                WalkToPoint(candidate, "player");
+                return;
+            }
+        }
+
+        // 栅格全失败（房间被家具挤成 free=17 时很常见）：退回到"离玩家最近的锚点"，
+        // 这样至少能走到门口/床沿，和「去门口」一样可靠。
+        var bestAnchor = NearestAnchorTo(toPlayer);
+        if (!string.IsNullOrEmpty(bestAnchor))
+        {
+            GameLog.Event("walk_target", "to", "player", "via", "anchor:" + bestAnchor,
+                "dist", GameLog.F(Vector3.Distance(toPlayer, AnchorPosition(bestAnchor) ?? toPlayer)));
+            WalkTo(bestAnchor);
+            return;
+        }
+
+        GameLog.Event("walk_target", "to", "player", "via", "none");
+        Debug.LogWarning("[NpcAgent] 过来：找不到任何可行目的地");
+    }
+
+    /// <summary>找离某个世界坐标最近的锚点（用锚点距离，不用寻路距离）。</summary>
+    string NearestAnchorTo(Vector3 position)
+    {
+        if (graph == null)
+        {
+            return null;
+        }
+
+        var best = string.Empty;
+        var bestDistance = float.MaxValue;
+        foreach (var anchor in graph.anchors)
+        {
+            if (anchor == null || string.IsNullOrEmpty(anchor.id))
+            {
+                continue;
+            }
+
+            var p = AnchorPosition(anchor.id);
+            if (!p.HasValue)
+            {
+                continue;
+            }
+
+            var d = FlatDistance(p.Value, position);
+            if (d < bestDistance)
+            {
+                bestDistance = d;
+                best = anchor.id;
+            }
+        }
+
+        return best;
     }
 
     /// <summary>走到任意世界坐标点（用栅格 A*；失败则直线）。供"过来"这类动态目的地使用。</summary>
