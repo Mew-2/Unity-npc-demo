@@ -158,6 +158,25 @@
     若明显变大 ⇒ 根位移叠加。
   - 参考：掘金《Unity Root Motion 开发详解》把「角色突然瞬移」归因为「动画首尾帧位移未闭合」，
     与假设②一致；其「滑步 = 按比例缩放 deltaPosition」对应 `RootMotionRelay.scale`。
+
+- **2026-11-15 04:50 场景全还原 + 两个"伪 bug"的真因**
+  - 床、椅子、靠垫全部还原（`HideBedForTest = false`，`hide` 列表清空）。实测**能正常绕行**，
+    推翻了早前"西侧 0.20m 通道 / 家具总占位 3.56m > 房间 3.52m 所以走不过去"的静态推算。
+  - 椅子看不见的真因：`HideBedForTest` 那段按**包围盒**关渲染器（中心落在 bedBox、跨度<2.8m、最高点>0.3m），
+    椅子高 0.9m、中心正好在盒子里，于是 `SetActive` 是 true 但 `Renderer.enabled = false`。
+    修：`skipWords` 增加 `Chair`，并让日志列出被关掉的渲染器名字。
+  - "起来比门还高 / 随便一走就被床顶起来"的真因：坐姿时 `CharacterController` 是关闭的，
+    但 `Update` 里 `_vertical += gravity * dt` 无条件执行 —— 坐 20 秒累计 **−240 m/s**，
+    起身第一帧向下扎数米，被 CharacterController 沿最短轴弹到床面上。
+    修：坐姿不累积重力，起身重置为 −2。
+  - `stepOffset 0.3 → 0.12` 是误判（以为它让人踩上床），已撤回：那是你想要的"能蹭上床"。
+  - **"视角不对劲"的真因（构建器 bug）**：`Shoot()` 拍完五张预览图后没有恢复相机，
+    内存里的场景停在最后一张 `05-window-wall` 的机位 `(3.6,1.6,3.1 / yaw 195)`。
+    而 `SaveScene` 发生在 `Shoot()` **之前**，所以磁盘上的场景是对的、内存是脏的 ——
+    构建完直接 Play 就会"从窗边朝门口看"。修：拍完保存/恢复 `localPosition`/`localRotation`。
+  - 新增玩家侧日志：`spawn` / `spawn_after_stand`（pos、camPos、camLocal、camParent、yaw、fov、
+    到门/椅/窗距离、正前方 8m 射线命中）与 `player`（1 Hz：pos/v/grounded/ctrl/seated/camY）。
+    这组日志直接终结了"文件说在门口、画面像在窗边"的争论。
 ## 当前卡点
 
 - **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟。已用空场景 bisect 验证**与 VRM 无关**（空场景进 Play 再退同样卡），是这台机器/这个版本 Unity 的退出行为，先用任务管理器结束，低优先级。
