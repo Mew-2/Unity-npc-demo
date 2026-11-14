@@ -97,30 +97,30 @@
 - **2026-11-12** 玩家动作反应 + 近景锚点：`AnchorGraph` 运行时补 **`front`**（床前 2.8m，镜头前约 1.4m）；`PlayerActionDetector`（点击头/背/身体，背后角度判定）+ `ReactionController`（摸头 happy、拍背 surprised+转身、轻触 relaxed）；`DialogueUI.ShowLine`；离线台词「过来」「转过去」。验证：走到镜头前、转身背对、拍背触发惊讶+转身+台词。
 - **2026-11-13** 服务端结构化日志：`logging_config.py`（structlog + JSONL `logs/turns.jsonl` + 控制台）；`/direct` 中间件绑定 `trace_id` 并回写 `X-Trace-Id`；每轮记录 `player_text / character_id / say / commands / prompt / raw_response / valid / errors / latency_ms / model`。验证：HTTP 200、响应头可取、日志 UTF-8 正确、`pytest 11 passed`。
 - **2026-11-13 收工**：交接文档 `docs/HANDOFF.md` 更新为“换机器/出租屋”清单（只带 unitypackage 时重抽的 8 个 FBX、环境、步骤）；公开仓库仍不含授权动画，clone 回退 T-pose。
+- **2026-11-14 换机恢复 + Kawaii 动画节奏重做**：
+  - 出租屋机器恢复仓库：hosts 被 Watt Toolkit（Steam++）指向 127.0.0.1，改走镜像 `ghfast.top` 拉取，`.git` 完整移植（历史未断）。
+  - Unity 2022.3.62f3c1 导入 1935 个资产、0 编译错误。**踩坑：`-nographics` 批量模式下 VRM 导入抛 `ArgumentNullException`**（拿不到 MToon shader），`.vrm` 退化成 DefaultAsset、`visualPrefab` 变 null；必须带图形设备跑。
+  - 从 unitypackage 直读 tar 结构抽出 7 个 FBX + 原 `.meta` 落到 `Assets/_LocalTest/Kawaii/`，不用开第二个 Unity 工程导包。
+  - 走路节奏重做：`KA_Walk01_Start` 裁到 0.8s（位移 1.98m→0.38m）、`KA_Walk01_Stop` 裁到 1.0s（2.00m→0.04m）；新增 `KawaiiMotionProfile` 按帧烘焙片段自带步速，`NpcAgent` 跟随它移动；`Walk` 状态播放速率接 `SpeedRatio`，刹车同步放慢步频。
+  - 状态机三处修复：① `Idle→WalkStart` 加 `Braking=false` 且门槛提到 0.5（原来停稳后 Speed 尾巴会闪一下起步）；② `Walk→WalkStop` 改看 `SpeedRatio<0.25`（原来一刹车就进收势，人还差半米就静止）；③ 兜底 `CrossFade("Idle")` 加 `IsInTransition` 守卫（原来每帧重置过渡，状态永远退不出去）。
+  - 新增 `GameLog`（`Logs/game.jsonl`，10Hz 记录状态/时相/步速/播放速率/位移/刹车），三个编辑器工具：`KawaiiClipAnalyzer`（量片段节奏）、`KawaiiClipTrimmer`（裁剪帧区间）、`KawaiiAnimatorVerifier`（无头断言）。
+  - 验证：无头批次 PASS（11 条状态机转换 + 3 条裁剪 + 场景接线 + VRM 68 子物体）；实机 Play 日志测得滑步 **1.3%**（原 11~16%），`forced_idle` 0 条。
 
 ## 当前卡点
 
-- **Kawaii 动画待验证**：Walk01 的 Start/Loop/Stop 与 Pivot 已接进 builder，但还没跑通确认。
-- **客户端可观测性**：只有 Console，没有 JSONL；互动对话丢失、转身后呼吸停还没定位。
+- **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟（怀疑 VRM 的 66 个 SkinnedMeshRenderer + SpringBone 销毁），只能任务管理器结束。
+- **客户端可观测性**：`GameLog` 已就位，但只覆盖移动/Animator，对话链路（say/commands/表情/摸头）还没接。
 - 膝枕相机、两幕状态未做。
 - M1 还差**验收录屏**（10 秒，bed→window）。
 - 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
 
 ## 下一步
 
-1. 跑 `Build Kawaii Animator`，验证 Walk01 Start/Loop/Stop + Pivot
-2. 加 Unity `GameLog`（收到 say/commands、显示、Animator 状态），定位两个 bug
+1. 用 `GameLog` 补记对话链（say/commands/表情/摸头），定位"摸头对话丢失""转过去后呼吸停"
+2. 查编辑器退出卡死（先试 VRM 导入设置里关 SpringBone / 网格分离）
 3. 膝枕相机（PoseCamera）
-4. 淘宝 FBX 补齐动作；M2 录屏（12-12）
-- 未配置 `LLM_API_KEY`，真实模型路径未跑（离线可用）。
-
-## 下一步
-
-1. `ExpressionController`（不依赖动画，先让 5 个表情可调）
-2. 玩家动作检测（摸头/拍背/靠近）+ 反应表
-3. 膝枕相机（PoseCamera）
-4. 淘宝 FBX 到位后接 Animator（待机/走路/坐姿）
-5. M2 录屏（12-12）
+4. 两幕状态（夜/晨）
+5. M1 验收录屏（10 秒）+ M2 录屏（12-12）
 
 ## 决策记录
 

@@ -21,18 +21,39 @@ public class NpcAgent : MonoBehaviour
     public AnchorGraph graph;
 
     [Header("移动")]
-    public float moveSpeed = 1.2f;                 // m/s，SPEC 里定的
+    public float moveSpeed = 1.07f;                // m/s，对齐 Walker 循环片段步幅（1.421m / 1.333s）
     public float turnSpeedDegPerSec = 720f;        // 转身速度
     public float arriveDistance = 0.02f;           // 到达判定
     public float groundOffset = 1f;                // 胶囊中心离地高度（胶囊高 2，所以是 1）
+
+    [Header("加减速")]
+    [Tooltip("从静止到满速的时间（秒），对齐起步片段的抬脚节奏")]
+    public float accelTime = 0.6f;
+
+    [Tooltip("到锚点前开始减速的时间（秒），让停下时不突兀")]
+    public float decelTime = 0.3f;
+
+    [Tooltip("走路拐弯时是否播 Pivot 片段。该片段自带 3m 位移，与代码直线位移冲突，先关掉")]
+    public bool autoPivot;
 
     /// <summary>当前所在锚点 id，用于下一次 FindPath 的起点。</summary>
     public string CurrentAnchorId { get; private set; } = "bed";
 
     public bool IsMoving { get; private set; }
 
+    /// <summary>当前实际速度占 moveSpeed 的比例（0~1），供动画驱动用。</summary>
+    public float SpeedNormalized => moveSpeed > 0.0001f ? Mathf.Clamp01(_currentSpeed / moveSpeed) : 0f;
+
+    /// <summary>当前实际平移速度（m/s），写日志用。</summary>
+    public float CurrentSpeed => _currentSpeed;
+
+    /// <summary>是否正在刹车（快到终点），状态机用它切收势片段。</summary>
+    public bool IsBraking { get; private set; }
+
     Coroutine _moveRoutine;
     NpcAnimationDriver _animationDriver;
+    float _currentSpeed;   // 当前实际速度 m/s
+    float _elapsed;        // 本次移动已经走了多久
 
     void Awake()
     {
@@ -135,6 +156,22 @@ public class NpcAgent : MonoBehaviour
     IEnumerator MoveAlong(List<string> path)
     {
         IsMoving = true;
+        _elapsed = 0f;
+        _currentSpeed = 0f;
+        IsBraking = false;
+
+        if (_animationDriver == null)
+        {
+            _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
+        }
+
+        var goal = AnchorPosition(path[path.Count - 1]);
+        GameLog.Event(
+            "walk_begin",
+            "from", CurrentAnchorId,
+            "to", path[path.Count - 1],
+            "path", string.Join(">", path),
+            "driver", _animationDriver != null && _animationDriver.HasController ? "1" : "0");
 
         // path[0] 是起点，从 path[1] 开始逐段走。
         for (var i = 1; i < path.Count; i++)
@@ -148,7 +185,7 @@ public class NpcAgent : MonoBehaviour
             // 拐点：下一段方向与当前朝向夹角较大时，播 Pivot（脚步倒重心）
             var segment = target.Value - transform.position;
             segment.y = 0f;
-            if (segment.sqrMagnitude > 0.0001f && Vector3.Angle(transform.forward, segment.normalized) > 45f)
+            if (autoPivot && segment.sqrMagnitude > 0.0001f && Vector3.Angle(transform.forward, segment.normalized) > 45f)
             {
                 if (_animationDriver == null)
                 {
@@ -168,11 +205,17 @@ public class NpcAgent : MonoBehaviour
 
                 if (toTarget.sqrMagnitude > 0.0001f)
                 {
-                    // 1) 位置：朝目标匀速靠近（帧率无关）
+                    _elapsed += Time.deltaTime;
+                    var remaining = goal.HasValue ? Vector3.Distance(transform.position, goal.Value) : float.MaxValue;
+                    var brakeDistance = Mathf.Max(0.05f, moveSpeed * decelTime);
+                    IsBraking = decelTime > 0.001f && remaining < brakeDistance;
+                    _currentSpeed = DesiredSpeed(_elapsed, remaining, brakeDistance);
+
+                    // 1) 位置：按加减速后的速度靠近（帧率无关）
                     transform.position = Vector3.MoveTowards(
                         transform.position,
                         target.Value,
-                        moveSpeed * Time.deltaTime);
+                        _currentSpeed * Time.deltaTime);
 
                     // 2) 朝向：平滑转向移动方向
                     var look = Quaternion.LookRotation(toTarget.normalized, Vector3.up);
@@ -189,9 +232,38 @@ public class NpcAgent : MonoBehaviour
             CurrentAnchorId = path[i];
         }
 
+        _currentSpeed = 0f;
+        IsBraking = false;
         IsMoving = false;
         _moveRoutine = null;
+        GameLog.Event("walk_end", "anchor", CurrentAnchorId, "elapsed", GameLog.F(_elapsed));
         Debug.Log($"[NpcAgent] 到达 {CurrentAnchorId}");
+    }
+
+    /// <summary>
+    /// 速度优先级：动画片段的实际步速（避免打滑）> 兜底的加速斜坡；再叠加终点前的刹车限制。
+    /// </summary>
+    float DesiredSpeed(float elapsed, float remaining, float brakeDistance)
+    {
+        var speed = moveSpeed;
+
+        if (_animationDriver != null && _animationDriver.HasController)
+        {
+            // 片段自带步速 = 脚在身体坐标里后退的快慢，身体按它走才不会滑
+            speed *= Mathf.Clamp(_animationDriver.SpeedScale, 0f, 1.3f);
+        }
+        else if (accelTime > 0.001f)
+        {
+            speed *= Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / accelTime));
+        }
+
+        if (IsBraking && remaining < brakeDistance)
+        {
+            speed = Mathf.Min(speed, Mathf.Max(0.12f * moveSpeed, moveSpeed * remaining / brakeDistance));
+        }
+
+        // 兜底：别因为片段步速是 0 就卡死在原地（收势段步速接近 0，还要走完最后几厘米）
+        return Mathf.Max(speed, 0.08f);
     }
 
     Vector3? AnchorPosition(string id)

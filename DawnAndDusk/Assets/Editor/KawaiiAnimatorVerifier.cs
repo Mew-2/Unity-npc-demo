@@ -88,6 +88,11 @@ public static class KawaiiAnimatorVerifier
             clips[file] = all[0];
         }
 
+        Section("1.1 片段裁剪（起步/停止不应再是跨房间的长度）");
+        ExpectLength(clips, "@KA_Walk01_Start.FBX", 0.800f);
+        ExpectLength(clips, "@KA_Walk01_Stop.FBX", 1.000f);
+        ExpectLength(clips, "@KA_Walk01.FBX", 1.333f);
+
         Section("2. 生成 Animator Controller");
         KawaiiAnimatorBuilder.Build();
         AssetDatabase.Refresh();
@@ -138,9 +143,10 @@ public static class KawaiiAnimatorVerifier
         }
 
         Section("3. 状态机断言");
-        Expect(machine, "Idle", "WalkStart", "Speed Greater 0.1");
+        Expect(machine, "Idle", "WalkStart", "Speed Greater 0.5");
+        Expect(machine, "Idle", "WalkStart", "Braking IfNot");
         Expect(machine, "WalkStart", "Walk", null);
-        Expect(machine, "Walk", "WalkStop", "Speed Less 0.1");
+        Expect(machine, "Walk", "WalkStop", "SpeedRatio Less 0.25");
         Expect(machine, "WalkStop", "Idle", null);
         Expect(machine, "WalkStart", "WalkStop", "Speed Less 0.05");
         Expect(machine, "Pivot", "Walk", "Speed Greater 0.1");
@@ -156,6 +162,33 @@ public static class KawaiiAnimatorVerifier
         if (res == null)
         {
             Fail("Resources 里找不到 KawaiiAnimator，运行时 CharacterSwitcher 会回退 T-pose");
+        }
+
+        var profile = Resources.Load<KawaiiMotionProfile>("KawaiiMotionProfile");
+        Line($"Resources.Load(\"KawaiiMotionProfile\") = {(profile == null ? "null" : $"{profile.referenceSpeed:F3} m/s, tracks={(profile.tracks == null ? 0 : profile.tracks.Length)}")}");
+        if (profile == null)
+        {
+            Fail("Resources 里找不到 KawaiiMotionProfile，走路会退回常数速度（会打滑）");
+        }
+        else if (profile.tracks != null)
+        {
+            foreach (var track in profile.tracks)
+            {
+                var n = track.speeds == null ? 0 : track.speeds.Length;
+                var peak = 0f;
+                var sum = 0f;
+                if (track.speeds != null)
+                {
+                    foreach (var speed in track.speeds)
+                    {
+                        peak = Mathf.Max(peak, speed);
+                        sum += speed;
+                    }
+                }
+
+                var avg = n > 0 ? sum / n : 0f;
+                Line($"  track {track.state,-10} frames={n,3} 平均={avg:F2} m/s 峰值={peak:F2} m/s");
+            }
         }
 
         if (File.Exists(ScenePath))
@@ -241,6 +274,39 @@ public static class KawaiiAnimatorVerifier
     }
 
     /// <summary>
+    /// 把 NightRoom 里 Npc 的移动参数改成和片段步幅一致的值（改完保存场景）。
+    /// 场景里存的是序列化值，改 C# 默认值不会影响已有实例，所以要显式写一次。
+    /// </summary>
+    [MenuItem("Tools/DawnAndDusk/Apply Npc Move Tuning")]
+    public static void ApplyNpcTuning()
+    {
+        var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        var npcs = scene.GetRootGameObjects()
+            .SelectMany(r => r.GetComponentsInChildren<NpcAgent>(true))
+            .ToArray();
+
+        if (npcs.Length == 0)
+        {
+            Debug.LogError("[Tuning] 场景里没有 NpcAgent");
+            return;
+        }
+
+        foreach (var npc in npcs)
+        {
+            npc.moveSpeed = 1.03f;   // 对齐 KawaiiMotionProfile.referenceSpeed（Walk 片段平均步速）
+            npc.accelTime = 0.6f;
+            npc.decelTime = 0.3f;
+            npc.autoPivot = false;   // Pivot 片段自带 3m 位移，先关掉自动触发
+            Debug.Log($"[Tuning] Npc '{npc.name}' moveSpeed={npc.moveSpeed} accel={npc.accelTime} decel={npc.decelTime} autoPivot={npc.autoPivot}");
+            EditorUtility.SetDirty(npc);
+        }
+
+        EditorSceneManager.SaveScene(scene);
+        AssetDatabase.SaveAssets();
+        Debug.Log("[Tuning] 场景已保存");
+    }
+
+    /// <summary>
     /// VRM 在 -nographics 批量模式下会因拿不到 MToon shader 而导入失败（ArgumentNullException），
     /// 这里在带图形设备时强制重导一次并报告结果。
     /// </summary>
@@ -272,6 +338,24 @@ public static class KawaiiAnimatorVerifier
         else if (go.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length == 0)
         {
             Fail("VRM 里没有 SkinnedMeshRenderer（模型没导入成功）");
+        }
+    }
+
+    static void ExpectLength(System.Collections.Generic.Dictionary<string, AnimationClip> clips, string file, float seconds)
+    {
+        if (!clips.TryGetValue(file, out var clip) || clip == null)
+        {
+            Fail($"缺少片段 {file}");
+            return;
+        }
+
+        if (Mathf.Abs(clip.length - seconds) > 0.06f)
+        {
+            Fail($"{file} 长度 {clip.length:F3}s，预期 ≈{seconds:F3}s（没裁剪？跑一次 Tools/DawnAndDusk/Trim Kawaii Transitions）");
+        }
+        else
+        {
+            Line($"OK  {file} 长度 {clip.length:F3}s ≈ {seconds:F3}s");
         }
     }
 

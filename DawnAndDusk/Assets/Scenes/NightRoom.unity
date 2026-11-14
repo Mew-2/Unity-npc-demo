@@ -1099,10 +1099,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   graph: {fileID: 1358511990}
-  moveSpeed: 1.2
+  moveSpeed: 1.03
   turnSpeedDegPerSec: 720
   arriveDistance: 0.02
   groundOffset: 1
+  accelTime: 0.6
+  decelTime: 0.3
+  autoPivot: 0
 --- !u!23 &1764205651
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1258,7 +1261,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   npc: {fileID: 1764205650}
   client: {fileID: 1780739613}
-  animatorController: {fileID: 9100000, guid: d3774c62dd8d098498dcf9d50d98aad8, type: 2}
   profiles:
   - id: whale
     displayName: "\u9CB8\u9CB8"
