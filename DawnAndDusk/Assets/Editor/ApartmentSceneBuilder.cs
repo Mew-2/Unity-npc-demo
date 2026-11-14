@@ -18,10 +18,10 @@ public static class ApartmentSceneBuilder
     const string VrmPath = "Assets/Characters/DeepSeekChan/DeepSeek-chan.vrm";
     static readonly string OutDir = Path.Combine(Application.dataPath, "../dsh-apartment-shots");
 
-    // 主卧空地是绕床的 U 形：南条带 z0.3~0.9、西条带 x1.9~2.2、北条带 z3.3~3.9
-    // 机位放在床上（躺着醒来的视角），鲸鲸站在窗边/床脚，中间隔着床——正好是"侍寝/唤醒"的构图
-    static readonly Vector3 PlayerPos = new Vector3(3.30f, 1.32f, 1.15f);
-    static readonly Vector3 PlayerEuler = new Vector3(8f, 12f, 0f);
+    // 玩家开局躺在床上（相机 1.02m，前景是自己的被子），按移动键起身到床尾空地
+    static readonly Vector3 PlayerPos = new Vector3(3.30f, 0.05f, 1.30f);
+    static readonly Vector3 PlayerEuler = new Vector3(-2f, 0f, 0f);
+    static readonly Vector3 StandUpPos = new Vector3(3.30f, 0.05f, 0.50f);
 
     struct AnchorSpec
     {
@@ -33,16 +33,16 @@ public static class ApartmentSceneBuilder
 
     static readonly AnchorSpec[] Specs =
     {
-        new AnchorSpec { id = "front",  name = "身前",   desc = "你面前，近距离说话的位置",       pos = new Vector3(3.35f, 0f, 0.70f) },
-        new AnchorSpec { id = "bed",    name = "床边",   desc = "铺着灰色被子的双人床",           pos = new Vector3(2.05f, 0f, 1.70f) },
-        new AnchorSpec { id = "desk",   name = "书桌边", desc = "靠西墙的书桌和一排书",           pos = new Vector3(2.05f, 0f, 2.70f) },
+        new AnchorSpec { id = "front",  name = "床边",   desc = "你身边的床边位置，近距离说话用", pos = new Vector3(2.05f, 0f, 1.35f) },
+        new AnchorSpec { id = "bed",    name = "床尾",   desc = "铺着灰色被子的双人床",           pos = new Vector3(2.05f, 0f, 2.30f) },
+        new AnchorSpec { id = "desk",   name = "书桌边", desc = "靠西墙的书桌和一排书",           pos = new Vector3(2.05f, 0f, 2.95f) },
         new AnchorSpec { id = "window", name = "窗边",   desc = "北面整墙的落地窗，挂着深色窗帘", pos = new Vector3(3.65f, 0f, 3.55f) },
         new AnchorSpec { id = "door",   name = "门口",   desc = "通往走廊的门",                   pos = new Vector3(2.30f, 0f, 0.55f) },
     };
 
     static readonly (string a, string b)[] Edges =
     {
-        ("door", "front"), ("door", "bed"), ("bed", "desk"), ("desk", "window"),
+        ("door", "front"), ("front", "bed"), ("bed", "desk"), ("desk", "window"),
     };
 
     [MenuItem("Tools/DawnAndDusk/Build Apartment Demo")]
@@ -81,15 +81,33 @@ public static class ApartmentSceneBuilder
             camera = go.GetComponent<Camera>();
         }
 
-        camera.transform.position = PlayerPos;
-        camera.transform.rotation = Quaternion.Euler(PlayerEuler);
+        // 玩家本体：CharacterController 负责碰撞，相机挂成子物体
+        var playerGo = new GameObject("Player");
+        playerGo.transform.position = new Vector3(3.30f, 0.05f, 0.62f);
+        playerGo.transform.rotation = Quaternion.identity;
+
+        var controller = playerGo.AddComponent<CharacterController>();
+        controller.height = 1.62f;
+        controller.radius = 0.24f;
+        controller.center = new Vector3(0f, 0.81f, 0f);
+        controller.skinWidth = 0.02f;
+
+        camera.transform.SetParent(playerGo.transform, false);
+        camera.transform.localPosition = new Vector3(0f, 1.02f, 0f);
+        camera.transform.localRotation = Quaternion.Euler(-2f, 0f, 0f);
         camera.nearClipPlane = 0.05f;
         camera.farClipPlane = 60f;
         camera.tag = "MainCamera";
-        if (camera.GetComponent<PlayerLook>() == null)
-        {
-            camera.gameObject.AddComponent<PlayerLook>();
-        }
+
+        var look = camera.GetComponent<PlayerLook>() ?? camera.gameObject.AddComponent<PlayerLook>();
+        look.yawRoot = playerGo.transform;
+
+        var player = playerGo.AddComponent<PlayerController>();
+        player.cameraTransform = camera.transform;
+        player.startSeated = true;
+        player.seatedHeight = 1.02f;
+        player.standingHeight = 1.58f;
+        player.standUpPosition = StandUpPos;
 
         // 2) 玩法根
         var root = new GameObject("Game");
@@ -227,7 +245,8 @@ public static class ApartmentSceneBuilder
     static void Shoot(Camera camera)
     {
         Directory.CreateDirectory(OutDir);
-        Render(camera, PlayerPos, PlayerEuler, "01-player-view.png");
+        var seatedEye = new Vector3(PlayerPos.x, 1.02f, PlayerPos.z);
+        Render(camera, seatedEye, new Vector3(-2f, 0f, 0f), "01-player-view.png");
 
         // 把鲸鲸临时摆到锚点，验证构图（VRM 枢轴在脚底，直接放 y=0）
         var vrm = AssetDatabase.LoadAssetAtPath<GameObject>(VrmPath);
@@ -241,7 +260,7 @@ public static class ApartmentSceneBuilder
                 standIn.transform.position = new Vector3(spec.pos.x, 0f, spec.pos.z);
                 standIn.transform.localScale = Vector3.one * 0.82f;
                 standIn.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
-                Render(camera, PlayerPos, PlayerEuler, $"02-npc-at-{id}.png");
+                Render(camera, seatedEye, new Vector3(-4f, 0f, 0f), $"02-npc-at-{id}.png");
                 Object.DestroyImmediate(standIn);
             }
         }

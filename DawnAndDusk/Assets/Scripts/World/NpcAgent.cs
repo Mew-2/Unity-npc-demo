@@ -230,6 +230,12 @@ public class NpcAgent : MonoBehaviour
 
             transform.position = target.Value;
             CurrentAnchorId = path[i];
+
+            if (i < path.Count - 1)
+            {
+                // 途经点：记录一下，用来查"拐弯时停顿"
+                GameLog.Event("waypoint", "anchor", path[i], "t", GameLog.F(_elapsed), "speed", GameLog.F(_currentSpeed));
+            }
         }
 
         _currentSpeed = 0f;

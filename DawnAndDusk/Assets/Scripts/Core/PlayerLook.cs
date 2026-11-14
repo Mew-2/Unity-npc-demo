@@ -14,13 +14,17 @@ public class PlayerLook : MonoBehaviour
     [Tooltip("必须按住右键才转视角，避免和左键点击 NPC 冲突")]
     public bool requireRightButton = true;
 
+    [Tooltip("水平旋转施加在这个物体上（玩家身体），相机只做俯仰——玩家走动时方向才对")]
+    public Transform yawRoot;
+
     float _yaw;
     float _pitch;
 
     void Start()
     {
-        var euler = transform.eulerAngles;
-        _yaw = euler.y;
+        var root = yawRoot != null ? yawRoot : transform;
+        _yaw = root.eulerAngles.y;
+        var euler = transform.localEulerAngles;
         _pitch = euler.x > 180f ? euler.x - 360f : euler.x;
     }
 
@@ -35,7 +39,9 @@ public class PlayerLook : MonoBehaviour
         _pitch -= Input.GetAxis("Mouse Y") * sensitivity;
         _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
 
-        transform.rotation = Quaternion.Euler(_pitch, _yaw, 0f);
+        var root = yawRoot != null ? yawRoot : transform;
+        root.rotation = Quaternion.Euler(0f, _yaw, 0f);
+        transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
 
         if (Input.GetMouseButtonDown(1))
         {
