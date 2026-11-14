@@ -65,12 +65,9 @@ public static class ApartmentSceneBuilder
     /// </summary>
     static void ArrangeBedroomProps()
     {
-        // 掉在地上的两个靠垫直接收起来（怎么摆都容易和床面穿插/悬空）
-        // 椅子已还原（2026-11-15 实验）：看它挡不挡路、以及绕行路线会变成什么样
-        var hide = new[]
-        {
-            "Bed_Bedroom_Pillow6", "Bed_Bedroom_Pillow7",
-        };
+        // 2026-11-15 03:55：床、椅子、地面靠垫全部还原，场景不再做任何"收起"处理。
+        // 保留这段结构是为了以后还能按名字临时收起某个物件（填进来即可）。
+        var hide = new string[0];
         var hidden = 0;
         foreach (var t in Object.FindObjectsOfType<Transform>())
         {
