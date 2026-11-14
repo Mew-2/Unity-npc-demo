@@ -124,8 +124,10 @@ public static class KawaiiAnimatorBuilder
             // Start 已被裁成"抬脚"段（约 0.8s），播到接近末尾再融进循环
             var startToLoop = startState.AddTransition(walkState);
             startToLoop.hasExitTime = true;
-            // A/B 实验：0.8 → 0.62，检验接缝超量是否随「收尾时剩余的根位移」变化
-            startToLoop.exitTime = 0.62f;
+            // 实测：exitTime 0.62 与 0.80 的接缝超量几乎一样（0.30 vs 0.33，且在限速削掉 0.04 之后），
+            // 说明超量主要由「两段末/首帧的姿态差」决定，而不是收尾时还剩多少位移。
+            // 所以用作者给的值 0.8，不要在这个旋钮上折腾。
+            startToLoop.exitTime = 0.8f;
             startToLoop.duration = StartToWalkBlend;
 
             if (stopState != null)
