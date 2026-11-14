@@ -17,6 +17,7 @@ public class NpcAnimationDriver : MonoBehaviour
     float _logTimer;
     string _lastState = "";
     Vector3? _visualBaseLocal;
+    float _idleWhileMoving;
 
     /// <summary>当前 Animator 状态名（Idle / WalkStart / Walk / WalkStop / Pivot ...）。</summary>
     public string CurrentStateName { get; private set; } = "Idle";
@@ -93,15 +94,23 @@ public class NpcAnimationDriver : MonoBehaviour
                 || (current.IsName("WalkStop") && current.normalizedTime >= 0.95f))
             {
                 GameLog.Event("forced_idle", "from", CurrentStateName, "norm", GameLog.F(current.normalizedTime));
-                _animator.CrossFade("Idle", 0.2f);
+                // CrossFade 的时长是"归一化时间"，CrossFadeInFixedTime 才是秒
+                _animator.CrossFadeInFixedTime("Idle", 0.2f);
             }
         }
 
-        // 反向兜底：该走却在 Idle（例如被别的逻辑切走了）→ 拉回走路状态
-        if (npc.useRootMotion && npc.IsMoving && CurrentStateName == "Idle" && !_animator.IsInTransition(0))
+        // 反向兜底：该走却在 Idle（例如被别的逻辑切走了）→ 拉回走路状态。
+        // 必须等一会儿再动手：状态机自己的 Idle→WalkStart 需要 Speed 爬到 0.5（约 0.06 秒），
+        // 这里如果第一帧就抢着 CrossFade，用的还是"归一化"时长——Idle 有 6.67 秒，
+        // 0.1 归一化 = 0.67 秒混合，WalkStart 在混合期间已经播到 0.8 之后，退出点被跨过去，
+        // 于是起步后必然出现约 0.6 秒的零位移空档（实测 zeroFrames=165）。
+        var waitingInIdle = npc.useRootMotion && npc.IsMoving && CurrentStateName == "Idle" && !_animator.IsInTransition(0);
+        _idleWhileMoving = waitingInIdle ? _idleWhileMoving + Time.deltaTime : 0f;
+        if (_idleWhileMoving > 0.35f)
         {
-            GameLog.Event("forced_walk", "from", CurrentStateName);
-            _animator.CrossFade("WalkStart", 0.1f);
+            GameLog.Event("forced_walk", "from", CurrentStateName, "wait", GameLog.F(_idleWhileMoving));
+            _animator.CrossFadeInFixedTime("WalkStart", 0.1f);
+            _idleWhileMoving = 0f;
         }
 
         _logTimer += Time.deltaTime;
@@ -192,7 +201,7 @@ public class NpcAnimationDriver : MonoBehaviour
             "len", GameLog.F(state.length),
             "aSpeed", GameLog.F(_animator.speed),
             "trans", _animator.IsInTransition(0) ? "1" : "0");
-        _animator.CrossFade("WalkStart", 0.05f);
+        _animator.CrossFadeInFixedTime("WalkStart", 0.05f);
     }
 
     static string NameOf(AnimatorStateInfo state)
