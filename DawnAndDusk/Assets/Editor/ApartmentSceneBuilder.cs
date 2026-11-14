@@ -29,8 +29,8 @@ public static class ApartmentSceneBuilder
     // 2026-11-15 03:40：床与椅子都还原（false），观察她会不会被椅子/床脚挡住
     const bool HideBedForTest = false;
 
-    /// <summary>目标身高（米）：玩家 175cm → 站立视线 163cm；鲸鲸 162cm。</summary>
-    const float PlayerEyeHeight = 1.50f;   // 原 1.63，站在床上时眼睛会高过门框
+    /// <summary>目标身高（米）：玩家 175cm → 站立视线 163cm（0.93×身高）；鲸鲸 162cm。</summary>
+    const float PlayerEyeHeight = 1.63f;
     const float NpcHeight = 1.62f;
 
     struct AnchorSpec
