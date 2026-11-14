@@ -124,7 +124,8 @@ public static class KawaiiAnimatorBuilder
             // Start 已被裁成"抬脚"段（约 0.8s），播到接近末尾再融进循环
             var startToLoop = startState.AddTransition(walkState);
             startToLoop.hasExitTime = true;
-            startToLoop.exitTime = 0.8f;
+            // A/B 实验：0.8 → 0.62，检验接缝超量是否随「收尾时剩余的根位移」变化
+            startToLoop.exitTime = 0.62f;
             startToLoop.duration = StartToWalkBlend;
 
             if (stopState != null)
