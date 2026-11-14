@@ -20,7 +20,7 @@ public static class KawaiiAnimatorBuilder
     /// 基线 0.15 时实测接缝多走 0.19m（≈ Start 末帧根偏移 0.38m 的一半）；
     /// 对照组 0.30：若超量保持不变 ⇒ 姿态/偏移泄漏；若随窗口变大 ⇒ 根位移叠加。
     /// </summary>
-    const float StartToWalkBlend = 0.30f;
+    const float StartToWalkBlend = 0.15f;
 
     const string IdlePath = Root + "/@KA_Idle01_breathing.FBX";
     const string WalkPath = Root + "/@KA_Walk01.FBX";
