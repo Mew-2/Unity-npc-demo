@@ -65,10 +65,10 @@ public static class ApartmentSceneBuilder
     static void ArrangeBedroomProps()
     {
         // 掉在地上的两个靠垫直接收起来（怎么摆都容易和床面穿插/悬空）
-        // 椅子暂时也收起：先验证"没有椅子她能不能走到床边"，再决定怎么摆
+        // 椅子已还原（2026-11-15 实验）：看它挡不挡路、以及绕行路线会变成什么样
         var hide = new[]
         {
-            "Bed_Bedroom_Pillow6", "Bed_Bedroom_Pillow7", "Chair_Norraryd",
+            "Bed_Bedroom_Pillow6", "Bed_Bedroom_Pillow7",
         };
         var hidden = 0;
         foreach (var t in Object.FindObjectsOfType<Transform>())
