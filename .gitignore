@@ -54,3 +54,9 @@ DawnAndDusk/Assets/_LocalTest.meta
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# ---- 本机 DSH 临时工作区（不入库） ----
+.dsh-net/
+dsh-*.log
+dsh-*.txt
+DawnAndDusk/.vsconfig
