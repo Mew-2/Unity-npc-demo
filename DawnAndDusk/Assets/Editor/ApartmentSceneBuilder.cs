@@ -234,11 +234,8 @@ public static class ApartmentSceneBuilder
         controller.radius = 0.24f;
         controller.center = new Vector3(0f, 0.81f, 0f);
         controller.skinWidth = 0.02f;
-        // 默认 stepOffset 是 0.3m —— 床沿/床基比这矮，人会被"踩"上去，
-        // 站在床垫上眼睛自然高过门框。压到 0.12m：只能迈过门槛/地毯边，爬不上床。
-        controller.stepOffset = 0.12f;
-        controller.slopeLimit = 45f;
-        controller.minMoveDistance = 0f;
+        // stepOffset 保持 Unity 默认 0.3：可以"蹭"上床、方便走到床对面观察鲸鲸。
+        // （之前把它压到 0.12 是误判——真正把人弹起来的是坐姿期间累积的重力，已修）
 
         camera.transform.SetParent(playerGo.transform, false);
         camera.transform.localPosition = new Vector3(0f, 1.00f, 0f);
