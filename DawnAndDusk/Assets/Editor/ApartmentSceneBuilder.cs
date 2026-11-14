@@ -478,6 +478,12 @@ public static class ApartmentSceneBuilder
     static void Shoot(Camera camera)
     {
         Directory.CreateDirectory(OutDir);
+
+        // 关键：拍完必须把相机放回原位——否则内存里的场景会停在最后一张图的机位
+        // （"05-window-wall" 是 3.6,1.6,3.1 / yaw 195），直接 Play 就是从窗边往门口看。
+        // 保存发生在 Shoot 之前，所以磁盘上的场景是对的，只有内存被污染。
+        var savedLocalPos = camera.transform.localPosition;
+        var savedLocalRot = camera.transform.localRotation;
         var seatedEye = new Vector3(PlayerPos.x, 1.02f, PlayerPos.z);
         Render(camera, seatedEye, new Vector3(-2f, 0f, 0f), "01-player-view.png");
 
@@ -500,6 +506,12 @@ public static class ApartmentSceneBuilder
 
         Render(camera, new Vector3(2.6f, 2.3f, 0.5f), new Vector3(18f, 28f, 0f), "04-room-wide.png");
         Render(camera, new Vector3(3.6f, 1.6f, 3.1f), new Vector3(2f, 195f, 0f), "05-window-wall.png");
+
+        // 恢复机体，保证构建完直接 Play 也是正确视角
+        camera.transform.localPosition = savedLocalPos;
+        camera.transform.localRotation = savedLocalRot;
+        EditorUtility.SetDirty(camera.transform);
+
         Debug.Log("[Apartment] 预览图在 " + OutDir);
     }
 
