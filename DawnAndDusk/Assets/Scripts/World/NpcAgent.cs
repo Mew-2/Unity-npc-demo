@@ -36,6 +36,14 @@ public class NpcAgent : MonoBehaviour
     [Tooltip("到锚点前开始减速的时间（秒），让停下时不突兀")]
     public float decelTime = 0.3f;
 
+    [Tooltip("用动画的根位移驱动移动（脚不打滑）。关掉则回到代码算速度的旧模式")]
+    public bool useRootMotion = true;
+
+    [Tooltip("步幅校准：VRM 是重定向到 Kawaii 片段的，腿长不同导致实际步幅小于片段烘焙值。\n" +
+             "1 = 完全按片段根位移；Play 时拖这个值直到脚看起来钉在地上（实测约 0.65~0.75）")]
+    [Range(0.3f, 1.2f)]
+    public float strideScale = 0.7f;
+
     [Tooltip("走路拐弯时是否播 Pivot 片段。该片段自带 3m 位移，与代码直线位移冲突，先关掉")]
     public bool autoPivot;
 
@@ -152,7 +160,20 @@ public class NpcAgent : MonoBehaviour
             StopCoroutine(_moveRoutine);
         }
 
-        _moveRoutine = StartCoroutine(MoveAlongPoints(points, anchorId));
+        _moveRoutine = StartCoroutine(MoveAlongPointsDispatch(points, anchorId));
+    }
+
+    /// <summary>walk 入口在 MoveAlongPoints 开头分流：useRootMotion 时走根位移版本。</summary>
+    IEnumerator MoveAlongPointsDispatch(List<Vector3> points, string targetAnchor)
+    {
+        if (useRootMotion)
+        {
+            yield return MoveAlongRootMotion(points, targetAnchor);
+        }
+        else
+        {
+            yield return MoveAlongPoints(points, targetAnchor);
+        }
     }
 
     /// <summary>0.5 秒内转向目标（锚点名或 player）。</summary>
@@ -202,6 +223,94 @@ public class NpcAgent : MonoBehaviour
         transform.rotation = targetRotation;
     }
 
+    /// <summary>
+    /// 用动画的根位移驱动移动：身体走多远由片段决定，脚不打滑。
+    /// 代码只负责"朝哪个方向走"和"什么时候停"。
+    /// </summary>
+    IEnumerator MoveAlongRootMotion(List<Vector3> points, string targetAnchor)
+    {
+        IsMoving = true;
+        _elapsed = 0f;
+        _currentSpeed = 0f;
+        IsBraking = false;
+
+        if (_animationDriver == null)
+        {
+            _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
+        }
+
+        var goal = points[points.Count - 1];
+        var lastPosition = transform.position;
+
+        for (var i = 1; i < points.Count; i++)
+        {
+            var target = points[i];
+            var lastDistance = float.MaxValue;
+            var guard = 0f;
+
+            while (true)
+            {
+                var remaining = FlatDistance(transform.position, goal);
+                var brakeDistance = Mathf.Max(0.05f, moveSpeed * decelTime);
+                IsBraking = decelTime > 0.001f && remaining < brakeDistance;
+
+                // 实际速度用位移反推，供动画驱动和日志使用
+                var moved = FlatDistance(transform.position, lastPosition);
+                if (Time.deltaTime > 0.0001f)
+                {
+                    _currentSpeed = Mathf.Lerp(_currentSpeed, moved / Time.deltaTime, 0.5f);
+                }
+
+                lastPosition = transform.position;
+
+                var distance = FlatDistance(transform.position, target);
+                if (distance <= arriveDistance)
+                {
+                    break;
+                }
+
+                // 冲过头（根位移不受控，可能一步迈过去）：距离先减后增就换下一段
+                if (distance > lastDistance + 0.02f && lastDistance < 0.9f)
+                {
+                    break;
+                }
+
+                lastDistance = distance;
+
+                // 只转向，不位移——位移由 RootMotionRelay 从 Animator 转交过来
+                var direction = target - transform.position;
+                direction.y = 0f;
+                if (direction.sqrMagnitude > 0.0001f)
+                {
+                    var look = Quaternion.LookRotation(direction.normalized, Vector3.up);
+                    transform.rotation = Quaternion.RotateTowards(
+                        transform.rotation,
+                        look,
+                        turnSpeedDegPerSec * Time.deltaTime);
+                }
+
+                _elapsed += Time.deltaTime;
+                guard += Time.deltaTime;
+                if (guard > 12f)
+                {
+                    GameLog.Event("walk_timeout", "anchor", targetAnchor, "remain", GameLog.F(remaining));
+                    break;
+                }
+
+                yield return null;
+            }
+
+            CurrentAnchorId = targetAnchor;
+        }
+
+        _currentSpeed = 0f;
+        IsBraking = false;
+        IsMoving = false;
+        _moveRoutine = null;
+        GameLog.Event("walk_end", "anchor", CurrentAnchorId, "elapsed", GameLog.F(_elapsed));
+        Debug.Log($"[NpcAgent] 到达 {CurrentAnchorId}");
+    }
+
     IEnumerator MoveAlongPoints(List<Vector3> points, string targetAnchor)
     {
         IsMoving = true;
@@ -222,6 +331,17 @@ public class NpcAgent : MonoBehaviour
             "points", points.Count.ToString(),
             "driver", _animationDriver != null && _animationDriver.HasController ? "1" : "0");
 
+        // 栅格路径点是 (x, 0, z) 的平面坐标，直接三维 MoveTowards 会把 root 拽到 y=0
+        // （表现为"走到一半沉下去、到终点又浮起来"）。统一压到当前高度，只走 XZ。
+        var walkHeight = transform.position.y;
+        var flat = new List<Vector3>(points.Count);
+        foreach (var p in points)
+        {
+            flat.Add(new Vector3(p.x, walkHeight, p.z));
+        }
+
+        points = flat;
+
         // points[0] 是起点，从 points[1] 开始逐段走。
         for (var i = 1; i < points.Count; i++)
         {
@@ -238,8 +358,15 @@ public class NpcAgent : MonoBehaviour
                 }
             }
 
-            while (Vector3.Distance(transform.position, target) > arriveDistance)
+            while (FlatDistance(transform.position, target) > arriveDistance)
             {
+                // 最后一小段直接吸附：避免"收势片段脚不动、身体还以保底速度爬"造成的滑步
+                if (FlatDistance(transform.position, target) < 0.12f)
+                {
+                    transform.position = target;
+                    break;
+                }
+
                 var toTarget = target - transform.position;
                 toTarget.y = 0f; // 只在水平面移动，不上下飘
 
@@ -286,6 +413,13 @@ public class NpcAgent : MonoBehaviour
         Debug.Log($"[NpcAgent] 到达 {CurrentAnchorId}");
     }
 
+    static float FlatDistance(Vector3 a, Vector3 b)
+    {
+        var dx = a.x - b.x;
+        var dz = a.z - b.z;
+        return Mathf.Sqrt(dx * dx + dz * dz);
+    }
+
     /// <summary>
     /// 速度优先级：动画片段的实际步速（避免打滑）> 兜底的加速斜坡；再叠加终点前的刹车限制。
     /// </summary>
@@ -296,7 +430,8 @@ public class NpcAgent : MonoBehaviour
         if (_animationDriver != null && _animationDriver.HasController)
         {
             // 片段自带步速 = 脚在身体坐标里后退的快慢，身体按它走才不会滑
-            speed *= Mathf.Clamp(_animationDriver.SpeedScale, 0f, 1.3f);
+            // strideScale 修正"重定向后实际步幅 < 片段烘焙步幅"的差
+            speed *= Mathf.Clamp(_animationDriver.SpeedScale, 0f, 1.3f) * Mathf.Max(0.1f, strideScale);
         }
         else if (accelTime > 0.001f)
         {

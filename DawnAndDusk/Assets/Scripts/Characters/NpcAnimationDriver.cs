@@ -16,6 +16,7 @@ public class NpcAnimationDriver : MonoBehaviour
     float _speedScale = 1f;
     float _logTimer;
     string _lastState = "";
+    Vector3? _visualBaseLocal;
 
     /// <summary>当前 Animator 状态名（Idle / WalkStart / Walk / WalkStop / Pivot ...）。</summary>
     public string CurrentStateName { get; private set; } = "Idle";
@@ -50,7 +51,9 @@ public class NpcAnimationDriver : MonoBehaviour
             profile = Resources.Load<KawaiiMotionProfile>("KawaiiMotionProfile");
         }
 
-        _animator.applyRootMotion = false;
+        // 根位移交给 RootMotionRelay（由 CharacterSwitcher 设置 applyRootMotion = true），
+        // 这里不要再关掉，否则又回到"代码算速度拖着脚走"的滑步模式
+        _animator.applyRootMotion = _animator.runtimeAnimatorController != null;
         GameLog.Event("driver_ready", "hasProfile", profile != null ? "1" : "0", "refSpeed", GameLog.F(profile != null ? profile.referenceSpeed : 0f));
         StartCoroutine(GroundOnce());
     }
@@ -100,6 +103,14 @@ public class NpcAnimationDriver : MonoBehaviour
             _lastState = CurrentStateName;
             var inTransition = _animator.IsInTransition(0);
             var next = inTransition ? NameOf(_animator.GetNextAnimatorStateInfo(0)) : "";
+
+            // 直接量脚：判断"脚是否打滑"要看着地的脚在世界里有没有位移，
+            // 而不是拿身体速度反推片段速度
+            var lf = _animator.GetBoneTransform(HumanBodyBones.LeftFoot);
+            var rf = _animator.GetBoneTransform(HumanBodyBones.RightFoot);
+            var lfPos = lf != null ? lf.position : Vector3.zero;
+            var rfPos = rf != null ? rf.position : Vector3.zero;
+
             GameLog.Event(
                 "anim",
                 "state", CurrentStateName,
@@ -116,7 +127,9 @@ public class NpcAnimationDriver : MonoBehaviour
                 "pos", $"{npc.transform.position.x:F2},{npc.transform.position.y:F2},{npc.transform.position.z:F2}",
                 "vis", $"{transform.position.x:F2},{transform.position.y:F2},{transform.position.z:F2}",
                 "visLocalY", GameLog.F(transform.localPosition.y),
-                "cam", $"{Camera.main.transform.position.x:F2},{Camera.main.transform.position.y:F2},{Camera.main.transform.position.z:F2}");
+                "cam", $"{Camera.main.transform.position.x:F2},{Camera.main.transform.position.y:F2},{Camera.main.transform.position.z:F2}",
+                "lf", $"{lfPos.x:F2},{lfPos.y:F2},{lfPos.z:F2}",
+                "rf", $"{rfPos.x:F2},{rfPos.y:F2},{rfPos.z:F2}");
         }
     }
 
@@ -185,6 +198,17 @@ public class NpcAnimationDriver : MonoBehaviour
         yield return null;
         yield return null;
 
+        // 只在 Idle 姿势下量：WalkStart/WalkStop 里量到的是抬脚姿势，会把模型整体顶高或压底
+        for (var i = 0; i < 30 && !_animator.GetCurrentAnimatorStateInfo(0).IsName("Idle"); i++)
+        {
+            yield return null;
+        }
+
+        if (_visualBaseLocal == null)
+        {
+            _visualBaseLocal = transform.localPosition;
+        }
+
         var left = _animator.GetBoneTransform(HumanBodyBones.LeftFoot);
         var right = _animator.GetBoneTransform(HumanBodyBones.RightFoot);
         var leftToes = _animator.GetBoneTransform(HumanBodyBones.LeftToes);
@@ -231,8 +255,11 @@ public class NpcAnimationDriver : MonoBehaviour
             yield break;
         }
 
-        var delta = -minY + 0.005f;
-        transform.localPosition += Vector3.up * delta;
+        var delta = Mathf.Clamp(-minY + 0.005f, -0.25f, 0.25f);
+
+        // 关键：按"基准位置 + 偏移"绝对赋值，不要累加——累加会在每次停下时漂移，
+        // 表现就是"走着走着沉下去又浮起来"
+        transform.localPosition = _visualBaseLocal.Value + Vector3.up * delta;
         Debug.Log($"[NpcAnimationDriver] 落地修正 {delta:F3}m（minY={minY:F3}）");
     }
 }

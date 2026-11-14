@@ -97,7 +97,23 @@ public class CharacterSwitcher : MonoBehaviour
                 // 公开仓库不带授权动画：找不到 controller 就回退 T-pose
                 var controller = Resources.Load<RuntimeAnimatorController>("KawaiiAnimator");
                 animator.runtimeAnimatorController = controller;
-                animator.applyRootMotion = false;
+
+                // 关键：打开根位移，让动画自己带着身体走（脚不打滑）
+                animator.applyRootMotion = controller != null;
+
+                if (controller != null)
+                {
+                    // OnAnimatorMove 只会回调到"和 Animator 同一个 GameObject"上的组件，
+                    // 所以 relay 必须挂在 animator.gameObject 上（不一定是 visual 根节点）
+                    var relay = animator.gameObject.GetComponent<RootMotionRelay>();
+                    if (relay == null)
+                    {
+                        relay = animator.gameObject.AddComponent<RootMotionRelay>();
+                    }
+
+                    relay.target = npc.transform;
+                    relay.relay = true;
+                }
 
                 // 有 LODGroup 的话强制 LOD0，避免远处换成低模后看起来"没动作"
                 foreach (var lod in visual.GetComponentsInChildren<LODGroup>())
