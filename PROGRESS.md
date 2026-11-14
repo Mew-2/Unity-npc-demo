@@ -126,6 +126,17 @@
   - `walk_timeout` 增加 `seg / dist / state / moved / stallLogged`，`anim` 增加 `aSpeed / apply / layerW / len / stSpeed / loop`。
   - 验证：仅 C# 改动，Unity 聚焦即重编译；待实机跑 `去门口`，看 `Logs/game.jsonl` 里 `move_stall` → `rm_stall` → `stall_probe` → `move_resume` 这条链。
 
+- **2026-11-15 根因定位：循环标记从来没写进导入设置（一次解释三个老问题）**
+  - 实机跑 `去门口`：卡了 2 次但最终 `walk_end reached=1`（耗时 5.1s）。日志证据链：
+    - 第 1 次卡死：`st=WalkStart, nt=1.314, len=0.8, loop=0`（时间轴已经跑过片段末尾 64%）；第 2 次：`st=Walk, nt=1.191, len=1.333, loop=0`（跑过末尾 19%）。
+    - 两次都是 `deltaPos=0,0,0`、`vel=0,0,0`、`rootPos` 完全不动，`applyRootMotion=1`、`aSpeed=1`、`bound=1`、`trans=0`、参数正常。**不是位移被吃掉，是片段已经播完、钳在末帧。**
+    - 探针 `CrossFade("WalkStart")` 之后 `move_resume afterProbe=0.004` —— 一重启立刻恢复，反向证明"片段停在末尾"。
+  - 到站后还有第二次隐患：`st=Walk, p_Speed=0`，`nt` 从 1.19 一路涨到 4.2 却不退出（`Walk→WalkStop` 的条件是 `SpeedRatio<0.25`，而 root motion 模式下 `SpeedRatio` 常驻 1）。片段一旦真的循环，就会变成"原地踏步"。
+  - 根因：`KawaiiAnimatorBuilder.SetLoop()` 用的是 `AnimationUtility.SetAnimationClipSettings`，对 **FBX 导入片段只改内存对象、不写回 .meta**。实测 `@KA_Walk01.FBX.meta` 里 `loopTime: 0`，Idle/Sit/Pivot/Bow 的 meta 里压根没有 `loopTime` 键（默认 false）。
+  - 同一个根因还解释了另外两个久拖的问题：**Idle 播一遍停住 = "转过去后呼吸停"**；Walk 播一遍停住 = **"中途卡死 / 起步像平移"**。
+  - 修：新增 `EnsureLoopSettings()`，直接改 `ModelImporter.clipAnimations[].loopTime` + `SaveAndReimport()`；`KawaiiAnimatorVerifier` 新增 2.1 节断言 Idle/Walk/Sit 必须 loop、Start/Stop 必须不 loop。
+  - 同时把 `Walk→WalkStop` 条件由 `SpeedRatio<0.25` 改成 `Speed<0.3`（看移动意图，不看播放速率），并在 verifier 里同步改断言。
+
 ## 当前卡点
 
 - **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟。已用空场景 bisect 验证**与 VRM 无关**（空场景进 Play 再退同样卡），是这台机器/这个版本 Unity 的退出行为，先用任务管理器结束，低优先级。

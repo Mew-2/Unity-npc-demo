@@ -26,6 +26,10 @@ public static class KawaiiAnimatorBuilder
     [MenuItem("Tools/DawnAndDusk/Build Kawaii Animator")]
     public static void Build()
     {
+        // 关键：循环必须在**导入设置**里落地，否则 Idle/Walk 播一遍就停在末帧
+        // （Walk 停住 = 根位移归零、人卡半路；Idle 停住 = 站着不呼吸）
+        EnsureLoopSettings();
+
         var idle = LoadClip(IdlePath, "Idle01_breathing");
         var walk = LoadClip(WalkPath, "KA_Walk01");
         var walkStart = LoadClip(WalkStartPath, "KA_Walk01_Start");
@@ -125,10 +129,12 @@ public static class KawaiiAnimatorBuilder
             }
         }
 
-        // 收势只在"真的要停了"时进入：边走边刹车时留在 Walk 里放慢步频，
-        // 否则 WalkStop 一进去片段步速就接近 0，人还差半米却原地静止（实测踩过）
+        // 收势只看"移动意图"（Speed），不看播放速率（SpeedRatio）。
+        // 实测：root motion 模式下 SpeedRatio 常驻 1，到站后 Speed 已经掉到 0，
+        // 状态机却一直留在 Walk（日志里 nt 从 1.19 一路涨到 4.2 都没退出），
+        // 片段一循环就变成"原地踏步"。改成 Speed<0.3 收势，到站必进 WalkStop。
         var outOfWalk = walkState.AddTransition(stopState != null ? stopState : idleState);
-        outOfWalk.AddCondition(AnimatorConditionMode.Less, 0.25f, "SpeedRatio");
+        outOfWalk.AddCondition(AnimatorConditionMode.Less, 0.3f, "Speed");
         outOfWalk.duration = 0.15f;
         outOfWalk.hasExitTime = false;
 
@@ -328,9 +334,69 @@ public static class KawaiiAnimatorBuilder
 
     static void SetLoop(AnimationClip clip, bool loop)
     {
+        // 注意：对 FBX 导入的片段，这句只改内存里的对象，**不会写回 .meta**，
+        // 重新导入就丢。真正的持久化在 EnsureLoopSettings()（改 ModelImporter）。
+        // 这里保留是为了当前这次生成立刻生效。
         var settings = AnimationUtility.GetAnimationClipSettings(clip);
         settings.loopTime = loop;
         AnimationUtility.SetAnimationClipSettings(clip, settings);
         EditorUtility.SetDirty(clip);
+    }
+
+    /// <summary>
+    /// 把循环标记写进 FBX 的导入设置（ModelImporter.clipAnimations）并重新导入。
+    /// 这是唯一能在重启 Unity 后依然生效的做法——`AnimationClip.loopTime` 对导入片段是易失的。
+    /// </summary>
+    static void EnsureLoopSettings()
+    {
+        EnsureLoop(IdlePath, true);
+        EnsureLoop(WalkPath, true);
+        EnsureLoop(WalkStartPath, false);
+        EnsureLoop(WalkStopPath, false);
+        EnsureLoop(WalkPivotPath, false);
+        EnsureLoop(SitPath, true);
+        EnsureLoop(BowPath, false);
+    }
+
+    static void EnsureLoop(string path, bool loop)
+    {
+        if (!(AssetImporter.GetAtPath(path) is ModelImporter importer))
+        {
+            Debug.LogWarning($"[Kawaii] 不是 ModelImporter，跳过循环设置：{path}");
+            return;
+        }
+
+        var clips = importer.clipAnimations;
+        if (clips == null || clips.Length == 0)
+        {
+            clips = importer.defaultClipAnimations;
+        }
+
+        if (clips == null || clips.Length == 0)
+        {
+            Debug.LogWarning($"[Kawaii] 导入设置里没有片段，跳过：{path}");
+            return;
+        }
+
+        var changed = false;
+        foreach (var clip in clips)
+        {
+            if (clip.loopTime == loop)
+            {
+                continue;
+            }
+
+            clip.loopTime = loop;
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return;
+        }
+
+        importer.clipAnimations = clips;
+        importer.SaveAndReimport();
+        Debug.Log($"[Kawaii] 导入设置 loop={loop} → {path}");
     }
 }

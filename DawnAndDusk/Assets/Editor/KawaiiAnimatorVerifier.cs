@@ -97,6 +97,16 @@ public static class KawaiiAnimatorVerifier
         KawaiiAnimatorBuilder.Build();
         AssetDatabase.Refresh();
 
+        // 这一条是 2026-11-15 那晚的根因：循环标记只写进了内存里的 AnimationClip，
+        // 没写进 .meta，于是 Walk 播一遍就到末帧——根位移归零，人卡在半路；
+        // Idle 同样停住，表现成"站着不呼吸"。
+        Section("2.1 循环标记（必须落在导入设置里）");
+        ExpectImporterLoop("@KA_Idle01_breathing.FBX", true);
+        ExpectImporterLoop("@KA_Walk01.FBX", true);
+        ExpectImporterLoop("@KA_Sit_CrossLegs_Loop.FBX", true);
+        ExpectImporterLoop("@KA_Walk01_Start.FBX", false);
+        ExpectImporterLoop("@KA_Walk01_Stop.FBX", false);
+
         var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
         if (controller == null)
         {
@@ -146,7 +156,7 @@ public static class KawaiiAnimatorVerifier
         Expect(machine, "Idle", "WalkStart", "Speed Greater 0.5");
         Expect(machine, "Idle", "WalkStart", "Braking IfNot");
         Expect(machine, "WalkStart", "Walk", null);
-        Expect(machine, "Walk", "WalkStop", "SpeedRatio Less 0.25");
+        Expect(machine, "Walk", "WalkStop", "Speed Less 0.3");
         Expect(machine, "WalkStop", "Idle", null);
         Expect(machine, "WalkStart", "WalkStop", "Speed Less 0.05");
         Expect(machine, "Pivot", "Walk", "Speed Greater 0.1");
@@ -356,6 +366,38 @@ public static class KawaiiAnimatorVerifier
         else
         {
             Line($"OK  {file} 长度 {clip.length:F3}s ≈ {seconds:F3}s");
+        }
+    }
+
+    static void ExpectImporterLoop(string file, bool loop)
+    {
+        var path = $"Assets/_LocalTest/Kawaii/{file}";
+        if (!(AssetImporter.GetAtPath(path) is ModelImporter importer))
+        {
+            Fail($"{file}: 不是 ModelImporter（文件不存在？）");
+            return;
+        }
+
+        var clips = importer.clipAnimations;
+        if (clips == null || clips.Length == 0)
+        {
+            clips = importer.defaultClipAnimations;
+        }
+
+        if (clips == null || clips.Length == 0)
+        {
+            Fail($"{file}: 导入设置里没有片段");
+            return;
+        }
+
+        var bad = clips.Where(c => c.loopTime != loop).Select(c => c.name).ToArray();
+        if (bad.Length > 0)
+        {
+            Fail($"{file}: loopTime 应为 {loop}，实际不符 [{string.Join(", ", bad)}]（跑一次 Tools/DawnAndDusk/Build Kawaii Animator）");
+        }
+        else
+        {
+            Line($"OK  {file} loopTime={loop}");
         }
     }
 

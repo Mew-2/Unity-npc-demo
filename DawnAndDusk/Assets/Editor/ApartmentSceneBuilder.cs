@@ -64,8 +64,6 @@ public static class ApartmentSceneBuilder
     /// </summary>
     static void ArrangeBedroomProps()
     {
-        var moved = 0;
-
         // 掉在地上的两个靠垫直接收起来（怎么摆都容易和床面穿插/悬空）
         // 椅子暂时也收起：先验证"没有椅子她能不能走到床边"，再决定怎么摆
         var hide = new[]
