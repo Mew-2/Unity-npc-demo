@@ -29,11 +29,11 @@ public class NpcAgent : MonoBehaviour
     public float arriveDistance = 0.02f;           // 到达判定
     public float groundOffset = 1f;                // 胶囊中心离地高度（胶囊高 2，所以是 1）
 
-    [Header("加减速")]
-    [Tooltip("从静止到满速的时间（秒），对齐起步片段的抬脚节奏")]
+    [Header("加减速（仅旧模式 useRootMotion=false 生效）")]
+    [Tooltip("从静止到满速的时间（秒）。root motion 模式下加速由 WalkStart 片段自带，这个值不参与")]
     public float accelTime = 0.6f;
 
-    [Tooltip("到锚点前开始减速的时间（秒），让停下时不突兀")]
+    [Tooltip("到锚点前开始减速的时间（秒）。root motion 模式下减速由 WalkStop 片段完成，这个值不参与")]
     public float decelTime = 0.3f;
 
     [Tooltip("用动画的根位移驱动移动（脚不打滑）。关掉则回到代码算速度的旧模式")]
@@ -279,12 +279,13 @@ public class NpcAgent : MonoBehaviour
             {
                 var remaining = FlatDistance(transform.position, goal);
 
-                // 刹车窗口按"当前速度 × 刹车时长"算，并限制在 0.15~0.45m：
-                // 之前是"固定最后 12cm 才开始刹"，但刹车把播放速率压到 0.15，
-                // 位移跟着掉到 0.13 m/s，于是最后 10cm 要爬 0.6 秒——观感就是子弹时间。
-                _brakeDistance = Mathf.Clamp(Mathf.Max(_currentSpeed, 0.4f) * decelTime, 0.15f, 0.45f);
-                _brakeRatio = Mathf.Clamp01(remaining / Mathf.Max(_brakeDistance, 0.001f));
-                IsBraking = decelTime > 0.001f && remaining < _brakeDistance;
+                // 这里原本有一段"最后 0.3m 把播放速率收到 0.6"的刹车逻辑。
+                // 实测（decelTime 置 0 / 1 各跑一次）观感没有区别：0.45m 的窗口只影响约 0.4 秒，
+                // 而收势本身由 WalkStop 片段完成，再叠一层减速属于双重减速。
+                // 保留 IsBraking 只为旧模式（useRootMotion=false）的代码路径服务。
+                IsBraking = false;
+                _brakeDistance = 0f;
+                _brakeRatio = 1f;
 
                 // 实际速度用位移反推，供动画驱动和日志使用
                 var moved = FlatDistance(transform.position, lastPosition);
