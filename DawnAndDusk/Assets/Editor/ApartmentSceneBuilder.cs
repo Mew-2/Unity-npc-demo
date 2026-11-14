@@ -20,15 +20,17 @@ public static class ApartmentSceneBuilder
 
     // 玩家躺在床上（床身 z 0.90~3.14 的南半部），视线高度 0.90m 更像躺着
     static readonly Vector3 PlayerPos = new Vector3(3.53f, 0.05f, 1.50f);
+    // 起身落点：床的包围盒是 x 2.23~4.83 / z 0.90~3.14，原来的 PlayerPos 在床里，
+    // 一起身就被 CharacterController 顶到床面上，眼睛高过门框。改到门口空地。
+    static readonly Vector3 StandUpPos = new Vector3(2.05f, 0.05f, 0.55f);
     static readonly Vector3 PlayerEuler = new Vector3(-2f, 0f, 0f);
-    static readonly Vector3 StandUpPos = new Vector3(3.53f, 0.05f, 3.28f);
 
     /// <summary>实验开关：把床整组藏掉（含床架），验证"她过不来"到底是床挡的还是逻辑问题。</summary>
     // 2026-11-15 03:40：床与椅子都还原（false），观察她会不会被椅子/床脚挡住
     const bool HideBedForTest = false;
 
     /// <summary>目标身高（米）：玩家 175cm → 站立视线 163cm；鲸鲸 162cm。</summary>
-    const float PlayerEyeHeight = 1.63f;
+    const float PlayerEyeHeight = 1.50f;   // 原 1.63，站在床上时眼睛会高过门框
     const float NpcHeight = 1.62f;
 
     struct AnchorSpec
@@ -249,8 +251,8 @@ public static class ApartmentSceneBuilder
         player.allowMovement = true;
         player.seatedHeight = 0.90f;
         player.standingHeight = PlayerEyeHeight;
-        // 实验：不再起身瞬移，原地站起来（床已隐藏，不会被顶出去）
-        player.standUpPosition = PlayerPos;
+        // 床已还原：不能再"原地起身"（PlayerPos 在床的包围盒里，会被顶到床面上）
+        player.standUpPosition = StandUpPos;
 
         // 2) 玩法根
         var root = new GameObject("Game");
