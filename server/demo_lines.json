@@ -101,6 +101,36 @@
           { "op": "look_at", "entity": "npc", "target": "player" }
         ]
       }
+    },
+    {
+      "player_text": "去门口",
+      "response": {
+        "say": "门口？……有人来了吗？",
+        "commands": [
+          { "op": "move", "entity": "npc", "anchor": "door" },
+          { "op": "look_at", "entity": "npc", "target": "player" }
+        ]
+      }
+    },
+    {
+      "player_text": "走过去",
+      "response": {
+        "say": "……走就走。",
+        "commands": [
+          { "op": "move", "entity": "npc", "anchor": "door" },
+          { "op": "look_at", "entity": "npc", "target": "player" }
+        ]
+      }
+    },
+    {
+      "player_text": "回窗边",
+      "response": {
+        "say": "窗边啊……好。",
+        "commands": [
+          { "op": "move", "entity": "npc", "anchor": "window" },
+          { "op": "look_at", "entity": "npc", "target": "player" }
+        ]
+      }
     }
   ]
 }

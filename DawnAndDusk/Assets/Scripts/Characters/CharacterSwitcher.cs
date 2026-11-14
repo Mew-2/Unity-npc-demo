@@ -90,10 +90,20 @@ public class CharacterSwitcher : MonoBehaviour
             var animator = visual.GetComponentInChildren<Animator>();
             if (animator != null)
             {
+                // 关键：默认的 CullUpdateTransforms 会在模型被判为"不在视野"时停更骨骼，
+                // 但 transform 还在被 NpcAgent 推进 —— 表现就是"动作丢了、人在平移"
+                animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+
                 // 公开仓库不带授权动画：找不到 controller 就回退 T-pose
                 var controller = Resources.Load<RuntimeAnimatorController>("KawaiiAnimator");
                 animator.runtimeAnimatorController = controller;
                 animator.applyRootMotion = false;
+
+                // 有 LODGroup 的话强制 LOD0，避免远处换成低模后看起来"没动作"
+                foreach (var lod in visual.GetComponentsInChildren<LODGroup>())
+                {
+                    lod.ForceLOD(0);
+                }
 
                 if (controller != null)
                 {
