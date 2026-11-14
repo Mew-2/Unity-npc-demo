@@ -113,9 +113,10 @@ public class NpcAnimationDriver : MonoBehaviour
                 "next", next,
                 "moving", npc.IsMoving ? "1" : "0",
                 "braking", npc.IsBraking ? "1" : "0",
-                "pos", $"{npc.transform.position.x:F2},{npc.transform.position.z:F2}",
-                "vis", $"{transform.position.x:F2},{transform.position.z:F2}",
-                "cam", $"{Camera.main.transform.position.x:F2},{Camera.main.transform.position.z:F2}");
+                "pos", $"{npc.transform.position.x:F2},{npc.transform.position.y:F2},{npc.transform.position.z:F2}",
+                "vis", $"{transform.position.x:F2},{transform.position.y:F2},{transform.position.z:F2}",
+                "visLocalY", GameLog.F(transform.localPosition.y),
+                "cam", $"{Camera.main.transform.position.x:F2},{Camera.main.transform.position.y:F2},{Camera.main.transform.position.z:F2}");
         }
     }
 

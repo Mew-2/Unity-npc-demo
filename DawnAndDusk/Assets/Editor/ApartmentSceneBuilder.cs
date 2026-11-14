@@ -23,8 +23,8 @@ public static class ApartmentSceneBuilder
     static readonly Vector3 PlayerEuler = new Vector3(-2f, 0f, 0f);
     static readonly Vector3 StandUpPos = new Vector3(3.53f, 0.05f, 3.28f);
 
-    /// <summary>实验开关：把床整组藏掉，验证"她过不来"到底是床挡的还是逻辑问题。</summary>
-    const bool HideBedForTest = false;
+    /// <summary>实验开关：把床整组藏掉（含床架），验证"她过不来"到底是床挡的还是逻辑问题。</summary>
+    const bool HideBedForTest = true;
 
     /// <summary>目标身高（米）：玩家 175cm → 站立视线 163cm；鲸鲸 162cm。</summary>
     const float PlayerEyeHeight = 1.63f;
@@ -43,12 +43,12 @@ public static class ApartmentSceneBuilder
     // 锚点全部放在"窗带"（床北侧 z≈3.2~3.5 的那条带，宽约 0.5m、长 2m）——
     // 绕床走位在物理上不成立（家具比房间还宽），所以改用"她本来就在窗前"的设定
         new AnchorSpec { id = "front",  name = "床沿",   desc = "你头侧的床沿，探身说话的位置",   pos = new Vector3(3.53f, 0f, 3.20f) },
-        new AnchorSpec { id = "bed",    name = "床边",   desc = "床北侧靠窗的空地",               pos = new Vector3(2.60f, 0f, 3.35f) },
-        new AnchorSpec { id = "desk",   name = "书桌边", desc = "靠西墙的书桌",                   pos = new Vector3(2.15f, 0f, 3.55f) },
+        new AnchorSpec { id = "bed",    name = "床边",   desc = "床侧的空地",                     pos = new Vector3(2.85f, 0f, 3.35f) },
+        new AnchorSpec { id = "desk",   name = "书桌旁", desc = "书桌旁的空地（离桌沿 0.4m）",     pos = new Vector3(2.50f, 0f, 3.50f) },
         new AnchorSpec { id = "window", name = "窗前",   desc = "落地窗中间",                     pos = new Vector3(3.20f, 0f, 3.45f) },
-        // 绕床西侧的窄道途经点（床西沿 2.23 / 书桌东沿 2.03，中间约 0.2m，贴墙挤过去）
-        new AnchorSpec { id = "west",   name = "床侧过道", desc = "床和书桌之间的窄道",           pos = new Vector3(2.13f, 0f, 1.60f) },
-        new AnchorSpec { id = "door",   name = "门口",   desc = "主卧门，西墙靠南",               pos = new Vector3(2.05f, 0f, 0.68f) },
+        // 去门口的中转点：放在空地中间，离书桌东沿(2.03)和床沿(2.23)都留出 0.4m 以上
+        new AnchorSpec { id = "west",   name = "房中",   desc = "房间中部的空地",                 pos = new Vector3(2.60f, 0f, 1.70f) },
+        new AnchorSpec { id = "door",   name = "门口",   desc = "主卧门，西墙靠南",               pos = new Vector3(2.20f, 0f, 0.70f) },
     };
 
     static readonly (string a, string b)[] Edges =
@@ -91,22 +91,56 @@ public static class ApartmentSceneBuilder
 
         if (HideBedForTest)
         {
-            var beds = 0;
-            foreach (var t in Object.FindObjectsOfType<Transform>())
+            // 只关"床体本身"：名字含 Bed（排除 Bedside），且包围盒横向跨度小于 2.8m（地板/天花板跨度更大）、
+            // 竖向范围落在床铺高度内——之前用地板中心判据把整块地板都关掉了
+            var bedBox = new Bounds(new Vector3(3.5f, 0.5f, 2.0f), new Vector3(2.8f, 1.6f, 2.5f));
+            var skipWords = new[] { "Floor", "Ceiling", "Skirting", "Carpet", "Rug", "Wall" };
+            var hiddenRenderers = 0;
+            foreach (var r in Object.FindObjectsOfType<Renderer>().Where(r => r.enabled))
             {
-                if (!t.gameObject.activeInHierarchy || !InBedroom(t))
+                if (!InBedroom(r.transform))
                 {
                     continue;
                 }
 
-                if (t.name.StartsWith("Bed_Bedroom", System.StringComparison.OrdinalIgnoreCase))
+                var name = r.name;
+                if (skipWords.Any(w => name.IndexOf(w, System.StringComparison.OrdinalIgnoreCase) >= 0))
                 {
-                    t.gameObject.SetActive(false);
-                    beds++;
+                    continue;
+                }
+
+                var b = r.bounds;
+                var byName = name.IndexOf("Bed", System.StringComparison.OrdinalIgnoreCase) >= 0
+                             && name.IndexOf("Bedside", System.StringComparison.OrdinalIgnoreCase) < 0;
+                var byBounds = bedBox.Contains(b.center)
+                               && Mathf.Max(b.size.x, b.size.z) < 2.8f
+                               && b.max.y > 0.3f;
+
+                if (byName || byBounds)
+                {
+                    r.enabled = false;
+                    hiddenRenderers++;
                 }
             }
 
-            Debug.LogWarning($"[Apartment] 实验模式：床已隐藏（{beds} 个对象），用于验证通行");
+            // 只关"床自己"的碰撞体：地板碰撞体是零厚度的薄片，用体积条件排除掉
+            var hiddenColliders = 0;
+            foreach (var c in Object.FindObjectsOfType<Collider>().Where(c => c.enabled))
+            {
+                if (!InBedroom(c.transform))
+                {
+                    continue;
+                }
+
+                var b = c.bounds;
+                if (bedBox.Contains(b.center) && b.size.y > 0.2f && Mathf.Max(b.size.x, b.size.z) < 2.8f)
+                {
+                    c.enabled = false;
+                    hiddenColliders++;
+                }
+            }
+
+            Debug.LogWarning($"[Apartment] 实验模式：床已隐藏（{hiddenRenderers} 个渲染器 / {hiddenColliders} 个碰撞体）");
         }
     }
 
@@ -253,7 +287,8 @@ public static class ApartmentSceneBuilder
             .Where(r =>
             {
                 var s = r.bounds.size;
-                return Mathf.Max(s.x, s.z) < 3f && s.y > 0.15f && r.bounds.min.y < 1.5f && r.bounds.max.y > 0.15f;
+                return r.enabled && r.gameObject.activeInHierarchy
+                       && Mathf.Max(s.x, s.z) < 3f && s.y > 0.15f && r.bounds.min.y < 1.5f && r.bounds.max.y > 0.15f;
             })
             .ToArray();
 
@@ -304,6 +339,14 @@ public static class ApartmentSceneBuilder
         npc.decelTime = 0.3f;
         npc.groundOffset = 1f;
         npc.autoPivot = false;
+
+        // 栅格寻路：扫描这间房里的家具，按她半宽 0.32m 膨胀
+        var grid = npcGo.AddComponent<GridPathfinder>();
+        grid.min = new Vector2(1.42f, 0.05f);
+        grid.max = new Vector2(4.95f, 3.72f);
+        grid.cell = 0.10f;
+        grid.agentRadius = 0.30f;
+        npc.pathfinder = grid;
 
         // 点击判定需要 collider（PlayerActionDetector 靠 Raycast 命中她）；
         // Npc 根在 y=1，脚底在 y=0，所以胶囊中心要下移 1m 再取一半身高

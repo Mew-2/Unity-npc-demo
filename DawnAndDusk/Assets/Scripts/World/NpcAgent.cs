@@ -20,6 +20,9 @@ public class NpcAgent : MonoBehaviour
     [Tooltip("留空会自动在场景里找 AnchorGraph")]
     public AnchorGraph graph;
 
+    [Tooltip("留空会自动在场景里找 GridPathfinder；有它就优先用栅格 A* 绕开家具")]
+    public GridPathfinder pathfinder;
+
     [Header("移动")]
     public float moveSpeed = 1.07f;                // m/s，对齐 Walker 循环片段步幅（1.421m / 1.333s）
     public float turnSpeedDegPerSec = 720f;        // 转身速度
@@ -76,7 +79,7 @@ public class NpcAgent : MonoBehaviour
         }
     }
 
-    /// <summary>走到指定锚点。path = 锚点图上的 BFS 最短路。</summary>
+    /// <summary>走到指定锚点。优先用栅格 A*（会自动绕开家具），失败时退回锚点图最短路。</summary>
     public void WalkTo(string anchorId)
     {
         if (graph == null)
@@ -90,15 +93,58 @@ public class NpcAgent : MonoBehaviour
             return;
         }
 
-        var path = graph.FindPath(CurrentAnchorId, anchorId);
-        if (path.Count < 2)
+        var target = AnchorPosition(anchorId);
+        if (!target.HasValue)
         {
-            GameLog.Event("walk_reject", "from", CurrentAnchorId, "to", anchorId, "pathLen", path.Count.ToString());
-            Debug.LogWarning($"[NpcAgent] 到不了 {anchorId}（不可达或已经在原地）");
             return;
         }
 
-        GameLog.Event("walk_accept", "from", CurrentAnchorId, "to", anchorId, "pathLen", path.Count.ToString());
+        if (pathfinder == null)
+        {
+            pathfinder = FindObjectOfType<GridPathfinder>();
+        }
+
+        var points = new List<Vector3>();
+        var source = "grid";
+        if (pathfinder != null && pathfinder.TryFindPath(transform.position, target.Value, points) && points.Count >= 2)
+        {
+            // 栅格寻路的点已经是世界坐标
+        }
+        else
+        {
+            source = "anchor";
+            points.Clear();
+            var path = graph.FindPath(CurrentAnchorId, anchorId);
+            if (path.Count < 2)
+            {
+                GameLog.Event("walk_reject", "from", CurrentAnchorId, "to", anchorId, "pathLen", path.Count.ToString(), "source", source);
+                Debug.LogWarning($"[NpcAgent] 到不了 {anchorId}（不可达或已经在原地）");
+                return;
+            }
+
+            foreach (var id in path)
+            {
+                var p = AnchorPosition(id);
+                if (p.HasValue)
+                {
+                    points.Add(p.Value);
+                }
+            }
+        }
+
+        if (points.Count < 2)
+        {
+            GameLog.Event("walk_reject", "from", CurrentAnchorId, "to", anchorId, "reason", "no_points");
+            return;
+        }
+
+        GameLog.Event(
+            "walk_accept",
+            "from", CurrentAnchorId,
+            "to", anchorId,
+            "source", source,
+            "points", points.Count.ToString(),
+            "route", string.Join(";", points.ConvertAll(p => $"{p.x:F2},{p.z:F2}")));
 
         // 新指令覆盖旧指令：停掉上一次移动。
         if (_moveRoutine != null)
@@ -106,7 +152,7 @@ public class NpcAgent : MonoBehaviour
             StopCoroutine(_moveRoutine);
         }
 
-        _moveRoutine = StartCoroutine(MoveAlong(path));
+        _moveRoutine = StartCoroutine(MoveAlongPoints(points, anchorId));
     }
 
     /// <summary>0.5 秒内转向目标（锚点名或 player）。</summary>
@@ -156,7 +202,7 @@ public class NpcAgent : MonoBehaviour
         transform.rotation = targetRotation;
     }
 
-    IEnumerator MoveAlong(List<string> path)
+    IEnumerator MoveAlongPoints(List<Vector3> points, string targetAnchor)
     {
         IsMoving = true;
         _elapsed = 0f;
@@ -168,48 +214,39 @@ public class NpcAgent : MonoBehaviour
             _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
         }
 
-        var goal = AnchorPosition(path[path.Count - 1]);
+        var goal = points[points.Count - 1];
         GameLog.Event(
             "walk_begin",
             "from", CurrentAnchorId,
-            "to", path[path.Count - 1],
-            "path", string.Join(">", path),
+            "to", targetAnchor,
+            "points", points.Count.ToString(),
             "driver", _animationDriver != null && _animationDriver.HasController ? "1" : "0");
 
-        // path[0] 是起点，从 path[1] 开始逐段走。
-        for (var i = 1; i < path.Count; i++)
+        // points[0] 是起点，从 points[1] 开始逐段走。
+        for (var i = 1; i < points.Count; i++)
         {
-            var target = AnchorPosition(path[i]);
-            if (!target.HasValue)
-            {
-                continue;
-            }
+            var target = points[i];
 
             // 拐点：下一段方向与当前朝向夹角较大时，播 Pivot（脚步倒重心）
-            var segment = target.Value - transform.position;
+            var segment = target - transform.position;
             segment.y = 0f;
             if (autoPivot && segment.sqrMagnitude > 0.0001f && Vector3.Angle(transform.forward, segment.normalized) > 45f)
             {
-                if (_animationDriver == null)
-                {
-                    _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
-                }
-
                 if (_animationDriver != null)
                 {
                     _animationDriver.PlayPivot();
                 }
             }
 
-            while (Vector3.Distance(transform.position, target.Value) > arriveDistance)
+            while (Vector3.Distance(transform.position, target) > arriveDistance)
             {
-                var toTarget = target.Value - transform.position;
+                var toTarget = target - transform.position;
                 toTarget.y = 0f; // 只在水平面移动，不上下飘
 
                 if (toTarget.sqrMagnitude > 0.0001f)
                 {
                     _elapsed += Time.deltaTime;
-                    var remaining = goal.HasValue ? Vector3.Distance(transform.position, goal.Value) : float.MaxValue;
+                    var remaining = Vector3.Distance(transform.position, goal);
                     var brakeDistance = Mathf.Max(0.05f, moveSpeed * decelTime);
                     IsBraking = decelTime > 0.001f && remaining < brakeDistance;
                     _currentSpeed = DesiredSpeed(_elapsed, remaining, brakeDistance);
@@ -217,7 +254,7 @@ public class NpcAgent : MonoBehaviour
                     // 1) 位置：按加减速后的速度靠近（帧率无关）
                     transform.position = Vector3.MoveTowards(
                         transform.position,
-                        target.Value,
+                        target,
                         _currentSpeed * Time.deltaTime);
 
                     // 2) 朝向：平滑转向移动方向
@@ -231,13 +268,13 @@ public class NpcAgent : MonoBehaviour
                 yield return null; // 等下一帧
             }
 
-            transform.position = target.Value;
-            CurrentAnchorId = path[i];
+            transform.position = target;
+            CurrentAnchorId = targetAnchor;
 
-            if (i < path.Count - 1)
+            if (i < points.Count - 1)
             {
                 // 途经点：记录一下，用来查"拐弯时停顿"
-                GameLog.Event("waypoint", "anchor", path[i], "t", GameLog.F(_elapsed), "speed", GameLog.F(_currentSpeed));
+                GameLog.Event("waypoint", "i", i.ToString(), "t", GameLog.F(_elapsed), "speed", GameLog.F(_currentSpeed));
             }
         }
 
