@@ -76,6 +76,12 @@ public class NpcAgent : MonoBehaviour
     float _stallStartAt;
     float _stallProbedAt = -1f;
 
+    // 顿挫量化：一次走路里有多少帧是"几乎没动"的、最快冲到了多少
+    int _zeroFrames;
+    int _speedFrames;
+    float _speedMax;
+    float _speedSum;
+
     void Awake()
     {
         if (graph == null)
@@ -244,6 +250,11 @@ public class NpcAgent : MonoBehaviour
         _currentSpeed = 0f;
         IsBraking = false;
 
+        _zeroFrames = 0;
+        _speedFrames = 0;
+        _speedMax = 0f;
+        _speedSum = 0f;
+
         if (_animationDriver == null)
         {
             _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
@@ -278,6 +289,17 @@ public class NpcAgent : MonoBehaviour
                 // 现在 0.4 秒就抓现场，并主动重启片段——用"重启后动不动"来判定根因在哪一层
                 // 用瞬时速度判定（而不是单帧位移），高帧率下也不会误报
                 var frameSpeed = moved / Mathf.Max(Time.deltaTime, 0.0001f);
+                _speedFrames++;
+                _speedSum += frameSpeed;
+                if (frameSpeed > _speedMax)
+                {
+                    _speedMax = frameSpeed;
+                }
+
+                if (frameSpeed < 0.05f)
+                {
+                    _zeroFrames++;
+                }
                 if (frameSpeed < 0.06f)
                 {
                     _stallTimer += Time.deltaTime;
@@ -294,7 +316,7 @@ public class NpcAgent : MonoBehaviour
                             "yaw", GameLog.F(transform.eulerAngles.y),
                             "state", _animationDriver != null ? _animationDriver.CurrentStateName : "-",
                             "bodySpeed", GameLog.F(_currentSpeed),
-                            "t", GameLog.F(_elapsed));
+                            "walkSec", GameLog.F(_elapsed));
 
                         if (probeStallRecovery && _animationDriver != null)
                         {
@@ -312,7 +334,7 @@ public class NpcAgent : MonoBehaviour
                             "anchor", targetAnchor,
                             "afterProbe", GameLog.F(_stallProbedAt > 0f ? Time.time - _stallProbedAt : -1f),
                             "stalled", GameLog.F(Time.time - _stallStartAt),
-                            "t", GameLog.F(_elapsed));
+                            "walkSec", GameLog.F(_elapsed));
                         _stallLogged = false;
                         _stallProbedAt = -1f;
                     }
@@ -381,7 +403,15 @@ public class NpcAgent : MonoBehaviour
 
         // 只有真正到达才说"到达"；超时/冲过头要如实记录
         var reached = FlatDistance(transform.position, goal) < 0.4f;
-        GameLog.Event("walk_end", "anchor", CurrentAnchorId, "elapsed", GameLog.F(_elapsed), "reached", reached ? "1" : "0");
+        GameLog.Event(
+            "walk_end",
+            "anchor", CurrentAnchorId,
+            "elapsed", GameLog.F(_elapsed),
+            "reached", reached ? "1" : "0",
+            "zeroFrames", _zeroFrames.ToString(),
+            "frames", _speedFrames.ToString(),
+            "vMax", GameLog.F(_speedMax),
+            "vMean", GameLog.F(_speedFrames > 0 ? _speedSum / _speedFrames : 0f));
         Debug.Log(reached ? $"[NpcAgent] 到达 {CurrentAnchorId}" : $"[NpcAgent] 未到达 {CurrentAnchorId}");
     }
 
@@ -391,6 +421,11 @@ public class NpcAgent : MonoBehaviour
         _elapsed = 0f;
         _currentSpeed = 0f;
         IsBraking = false;
+
+        _zeroFrames = 0;
+        _speedFrames = 0;
+        _speedMax = 0f;
+        _speedSum = 0f;
 
         if (_animationDriver == null)
         {
@@ -475,7 +510,7 @@ public class NpcAgent : MonoBehaviour
             if (i < points.Count - 1)
             {
                 // 途经点：记录一下，用来查"拐弯时停顿"
-                GameLog.Event("waypoint", "i", i.ToString(), "t", GameLog.F(_elapsed), "speed", GameLog.F(_currentSpeed));
+                GameLog.Event("waypoint", "i", i.ToString(), "walkSec", GameLog.F(_elapsed), "speed", GameLog.F(_currentSpeed));
             }
         }
 
