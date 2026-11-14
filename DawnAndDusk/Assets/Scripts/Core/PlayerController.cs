@@ -50,6 +50,38 @@ public class PlayerController : MonoBehaviour
             var p = cameraTransform.localPosition;
             cameraTransform.localPosition = new Vector3(p.x, _seated ? seatedHeight : standingHeight, p.z);
         }
+
+        LogSpawn("spawn");
+    }
+
+    /// <summary>出生/起身时记录一次：到关键物体的距离 + 正前方射线命中了什么。</summary>
+    void LogSpawn(string tag)
+    {
+        var cam = cameraTransform != null ? cameraTransform : transform;
+
+        string DistanceTo(string objectName)
+        {
+            var go = GameObject.Find(objectName);
+            return go == null ? "-" : GameLog.F(Vector3.Distance(transform.position, go.transform.position));
+        }
+
+        var camCamera = cam.GetComponent<Camera>();
+        var front = "-";
+        if (Physics.Raycast(cam.position, cam.forward, out var hit, 8f))
+        {
+            front = $"{hit.collider.name}@{GameLog.F(hit.distance)}";
+        }
+
+        GameLog.Event(
+            tag,
+            "pos", $"{transform.position.x:F2},{transform.position.y:F2},{transform.position.z:F2}",
+            "camPos", $"{cam.position.x:F2},{cam.position.y:F2},{cam.position.z:F2}",
+            "yaw", GameLog.F(cam.eulerAngles.y),
+            "fov", camCamera != null ? GameLog.F(camCamera.fieldOfView) : "-",
+            "dDoor", DistanceTo("Anchor_door"),
+            "dChair", DistanceTo("Chair_Norraryd"),
+            "dWindow", DistanceTo("Anchor_window"),
+            "front", front);
     }
 
     void Update()
@@ -65,6 +97,7 @@ public class PlayerController : MonoBehaviour
             _vertical = -2f;   // 关键：清掉坐姿期间累积的重力速度
             _seated = false;
             GameLog.Event("player_stand", "at", standUpPosition.ToString());
+            LogSpawn("spawn_after_stand");
         }
 
         var speed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : walkSpeed;
