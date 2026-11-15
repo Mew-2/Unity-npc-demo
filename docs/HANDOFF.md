@@ -40,7 +40,8 @@
 | ArchViz 公寓场景包 | `DawnAndDusk/Assets/_LocalTest/ArchViz/` | 3.2 GB | **必需**（demo 场景在这） |
 | 调试日志（可选，便于对比） | `DawnAndDusk/Logs/` | 0.7 MB | 可选 |
 | Kawaii 原包（备用，重抽 FBX 用） | `C:\baidunetdiskdownload\KAWAII ANIMATIONS 100 v1.10.3.unitypackage` | 78.5 MB | 可选 |
-| ~~Bedroom 20 场景包~~ | `Assets/_LocalTest/Bedroom/` | 962 MB | **不用带**（Built-in 管线，已弃用） |
+| ~~Bedroom 20 场景包~~ | ~~`Assets/_LocalTest/Bedroom/`~~ | — | **已删除（2026-11-16）**：Built-in 管线、光烘焙错位、窗帘后无窗，962MB 已清理 |
+| 对应编辑器脚本 | ~~`BedroomSceneBuilder` / `BedroomPrep` / `BedroomShot`~~ | — | **已删除**（只为上面那个场景服务） |
 
 拷贝方式：直接复制上面两个目录（`.meta` 一起），放到新机器同名路径。
 

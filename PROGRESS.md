@@ -192,6 +192,11 @@
   - 构建预览图不再入库：`.gitignore` 增加 `dsh-apartment-shots/`、`dsh-archviz-shots/`（每次构建重拍，5 张约 10MB）
   - 重写 `docs/HANDOFF.md` 头部：当前状态（含 4 个易复发的坑）、已知限制与下一步优先级、**拷到另一台电脑的文件清单**
   - 服务端：`move` 支持 `anchor="player"`（动态目的地），`pytest 12 passed`
+
+- **2026-11-16 04:05 清理弃用资产：Bedroom 20 场景包**
+  - 删除 `Assets/_LocalTest/Bedroom/`（393 个文件，**962 MB**）及其 `.meta`：Built-in 管线、材质全是 Standard、烘焙 lightmap 与 URP 错位、窗帘后是实墙，"拉开窗帘"演不出来。
+  - 同步删除只为它服务的三个编辑器脚本：`BedroomSceneBuilder.cs`、`BedroomPrep.cs`、`BedroomShot.cs`（全工程无其他引用）。
+  - `HANDOFF.md` 的拷贝清单里把该项标为已删除，避免再往另一台机器搬 962MB 无用资产。
 ## 当前卡点
 
 - **编辑器退出卡死**：Play 完整跑一轮后关 Unity 会停在 "Waiting for Unity's code to finish executing"，CPU 满载数分钟。已用空场景 bisect 验证**与 VRM 无关**（空场景进 Play 再退同样卡），是这台机器/这个版本 Unity 的退出行为，先用任务管理器结束，低优先级。
