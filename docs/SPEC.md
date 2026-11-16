@@ -4,7 +4,7 @@
 - 范围：1 个场景（夜 / 晨两幕）/ 4 条指令（spawn / move / look_at / set）/ 锚点语义布点 / **VRM 鲸鲸（VRoid 自捏）** / 5 个表情 / 4 个玩家动作反应 / 膝枕 / 可运行 demo + 录屏
 - 目标完工：**2026-12-12**（AI 主力编码，VRM 美术管线占大头）
 
-> v1.2 已定稿。执行交接见 `docs/HANDOFF.md`，进度见 `PROGRESS.md`。
+> v1.2 已定稿。执行交接见 `docs/HANDOFF.md`，实时状态也以它为准。
 
 ## 0. 考纲对齐（JD 原文 · 2026-11-04 勘误后）
 
@@ -41,7 +41,7 @@ v2 清单（记着，不主动做）：NPC 人格生成、动画生成与预览�
 - 两台机器保持**同一相对结构**；绝对路径不进任何入库文件（`.csproj`、`Library/`、`Logs/` 已 gitignore）。
 - 本机现状：只有 C 盘，工作区 `C:\YZ\Unity-npc-demo`（英文无空格，合规）。若公司机/家机有 D 盘，可 clone 到 `D:\Projects\Unity-npc-demo`——仓库不依赖绝对路径。
 - LLM 侧代码放同一仓库；如需 Linux 环境跑，WSL 经 `/mnt/d/Projects/Unity-npc-demo/server` 访问（D 盘时；C 盘则 `/mnt/c/...`）。
-- 双机同步：push 前先 `pull --rebase`；每次收工前更新 `PROGRESS.md`。
+- 双机同步：push 前先 `pull --rebase`；每次收工前更新 `docs/HANDOFF.md`。
 - **安装体积（v1 必装）**：Hub ≈0.6GB + Unity 2022.3 编辑器 ≈6–7GB + Windows Build Support (IL2CPP) ≈1.5GB ≈ **8–9GB**；项目 Library 另需 2–3GB。
   - **不装**：Android / iOS / WebGL 构建、Documentation、Visual Studio（VS Code / Rider 足够）。
   - 安装包缓存装完即删（约 5GB）；本机 C 盘已清出约 98GB，空间充足。
