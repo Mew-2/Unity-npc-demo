@@ -14,7 +14,7 @@
 
 ## 开发方式
 
-本项目由作者与 AI 编程助手（**DeepSeek**，经 DeepSeek Harness）结对完成：AI 负责初稿、脚本与排错，作者负责需求、验收、场景/锚点、调试现场与最终取舍。每个模块的归属、用户改动与 3 问自测记录见 [docs/OWNERSHIP.md](docs/OWNERSHIP.md)。
+本项目由作者与 AI 编程助手（**DeepSeek**，经 DeepSeek Harness）结对完成：公司机代号 **鲸蕙**、个人笔记本代号 **鲸若**；AI 负责初稿、脚本与排错，作者负责需求、验收、场景/锚点、调试现场与最终取舍。每个模块的归属、用户改动与 3 问自测记录见 [docs/OWNERSHIP.md](docs/OWNERSHIP.md)。
 
 ## 考纲对齐
 
