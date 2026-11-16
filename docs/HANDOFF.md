@@ -51,6 +51,7 @@
 - Python **3.12**（pymanager 或 WSL）
 - GitHub 加速（Watt Toolkit 等）
 - Git 身份：`user.name` + noreply 邮箱 `48088212+Mew-2@users.noreply.github.com`
+- **DSH 环境坑与恢复**：见 `docs/DSH-NOTES.md`（schannel/openssl、gh-proxy、沙箱 ACL）
 
 ## 3. 换机步骤
 
