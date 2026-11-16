@@ -1,57 +1,36 @@
-# 交接：换机器 / 另一台电脑继续（更新 2026-11-15 05:45）
+# 交接：实时可用
 
-> 代码在 GitHub：https://github.com/Mew-2/Unity-npc-demo
-> 以 `git log -1` 为准，本文只记"不在仓库里的东西"和"下一步做什么"。
+> 最后更新：2026-11-16 ｜ 对应 commit：以 `git log -1` 为准
+> 下次先做：打开 `ApartmentDemo`，验 Walk / Pivot，再查摸头对话与呼吸
 
-## 0. 当前状态（2026-11-15 凌晨）
+## 0. 当前状态
 
-- **场景**：`Assets/_LocalTest/ArchViz/3D SCENE/ApartmentDemo.unity`（本地资产，builder 生成）。
-  主卧 + 起床视角；**家具全部还原**（床 / 椅子 / 桌 / 靠垫都在原位）。
-- **动画**：root motion 驱动（`RootMotionRelay`），`WalkStart → Walk → WalkStop` 接缝已量化并收敛：
-  峰值 2.48 → 1.35（`maxSpeed` 限速），剩余 ~0.095m 接缝位移**已决策不修**（见 PROGRESS 与 LESSONS）。
-- **已知的关键坑**（都已修，换机器/重建时容易复发）：
-  - `loopTime` 必须写进 FBX 的 `.meta`（`EnsureLoopSettings()`），否则 Walk 播一遍就停；
-  - 过渡时长要用秒（`hasFixedDuration`）；`Animator.CrossFade` 的时长是**归一化时间**；
-  - `Shoot()` 拍完预览图必须恢复相机，否则构建后直接 Play 会"从窗边朝门口看"；
-  - 玩家坐姿期间不能累积重力（`_vertical`），否则起身会被弹到床面上。
-- **服务端**：FastAPI + `/direct` + 校验 + 离线回放 + structlog；`pytest 12 passed`。
-  `move` 的 `anchor` 允许 `"player"`（动态目的地）。
-- **玩家**：出生 (3.30, 0.05, 0.62) 坐姿；起身落点 (2.05, 0.05, 0.55) 门口；
-  眼高 坐 0.90 / 站 1.63（175cm 的人因比例）；鲸鲸固定 1.62m。
-
-## 0.1 已知限制 / 下一步优先级
-
-| 优先级 | 事项 | 说明 |
-|---|---|---|
-| 高 | **导航网格只覆盖卧室** | `GridPathfinder.min/max = (1.42,0.05)~(4.95,3.72)`；玩家走出房间后目的地被夹到网格边界，她停在门口。要么扩到全屋（cell 放大到 0.15），要么明说"她不出卧室" |
-| 高 | **卧室在完整家具下几乎不可走** | `grid_built free=17/1332`。床膨胀 0.30m 后只剩窄缝。可选：`agentRadius` 降到 0.18（会穿模）/ 藏床 / 只让她在床前与窗带活动 |
-| 中 | Pivot 原地转身 | 现片段自带 2.95m 位移，`autoPivot=false`；需裁出"位移小、转角大"的窗口 |
-| 中 | 对话链路可观测性 | `say / commands / 表情 / 摸头` 尚未进 `game.jsonl` |
-| 低 | 夜间光照 | 晨间已出片；夜间需重新烘焙 lightmap（要 GPU） |
-| 低 | 膝枕相机 / 两幕状态 | 未开始 |
+- **场景**：`Assets/_LocalTest/ArchViz/3D SCENE/ApartmentDemo.unity`（本地资产，不入库）
+- **动画**：root motion，`WalkStart → Walk → WalkStop`，拐点 `Pivot`；Idle 循环
+- **服务端**：FastAPI + `/direct` + 校验 + 离线回放 + structlog；`pytest 12 passed`
+- **玩家**：起床坐姿，眼高 0.90 / 站 1.63；鲸鲸固定 1.62m
+- **已知限制**：
+  - 导航网格只覆盖卧室；床膨胀后可行走区域很窄
+  - Pivot 片段自带位移，`autoPivot=false`
+  - `say / commands / 表情 / 摸头` 尚未进 `game.jsonl`
 
 ## 1. 必须拷到另一台电脑（不在 GitHub）
 
-仓库 clone 下来只缺下面这些（授权资产按政策不入库）：
-
-| 项 | 路径（本机） | 大小 | 必需 |
+| 项 | 路径 | 大小 | 必需 |
 |---|---|---|---|
-| Kawaii 动画 + 生成的 controller / 步速表 | `DawnAndDusk/Assets/_LocalTest/Kawaii/` | 6.8 MB | **必需**（没它只能 T-pose） |
-| ArchViz 公寓场景包 | `DawnAndDusk/Assets/_LocalTest/ArchViz/` | 3.2 GB | **必需**（demo 场景在这） |
-| 调试日志（可选，便于对比） | `DawnAndDusk/Logs/` | 0.7 MB | 可选 |
-| Kawaii 原包（备用，重抽 FBX 用） | `C:\baidunetdiskdownload\KAWAII ANIMATIONS 100 v1.10.3.unitypackage` | 78.5 MB | 可选 |
-| ~~Bedroom 20 场景包~~ | ~~`Assets/_LocalTest/Bedroom/`~~ | — | **已删除（2026-11-16）**：Built-in 管线、光烘焙错位、窗帘后无窗，962MB 已清理 |
-| 对应编辑器脚本 | ~~`BedroomSceneBuilder` / `BedroomPrep` / `BedroomShot`~~ | — | **已删除**（只为上面那个场景服务） |
+| Kawaii 动画 + controller + 步速表 | `DawnAndDusk/Assets/_LocalTest/Kawaii/` | 6.8 MB | 是 |
+| ArchViz 公寓场景 | `DawnAndDusk/Assets/_LocalTest/ArchViz/` | 3.2 GB | 是 |
+| 调试日志（可选） | `DawnAndDusk/Logs/` | 0.7 MB | 否 |
+| Kawaii 原包（重抽 FBX 用） | `C:\baidunetdiskdownload\KAWAII ANIMATIONS 100 v1.10.3.unitypackage` | 78.5 MB | 否 |
 
-拷贝方式：直接复制上面两个目录（`.meta` 一起），放到新机器同名路径。
+拷贝时 `.meta` 一起带。
 
-## 2. 环境（不是文件）
+## 2. 环境
 
-- Unity **2022.3.62f3c1** + Personal 许可证（家里要登录）
-- Python **3.12**（pymanager 或 WSL）
-- GitHub 加速（Watt Toolkit 等）
-- Git 身份：`user.name` + noreply 邮箱 `48088212+Mew-2@users.noreply.github.com`
-- **DSH 网络/权限排查**：见 `docs/DSH-NOTES.md`（只写方法，不写本机结论）
+- Unity **2022.3.62f3c1** + Personal 许可证
+- Python **3.12**
+- Git 身份：`Mew-2` + `48088212+Mew-2@users.noreply.github.com`
+- 网络/权限排查：见 [`LESSONS.md`](LESSONS.md#环境--工具)（只写方法，不写本机结论）
 
 ## 3. 换机步骤
 
@@ -61,219 +40,47 @@ git clone https://github.com/Mew-2/Unity-npc-demo.git
 cd Unity-npc-demo
 ```
 
-1. Unity Hub 打开 `DawnAndDusk`（2022.3.62f3c1）
-2. **动画恢复**（二选一）：
-   - 带了 `_LocalTest`：直接跑菜单 **Tools → DawnAndDusk → Build Kawaii Animator**
-   - 只带 unitypackage：把包导入任意 Unity 工程，抽出以下 **7 个 FBX + 同名 `.meta`**，放到 `DawnAndDusk/Assets/_LocalTest/Kawaii/`，再跑上面的菜单
+1. Unity Hub 打开 `DawnAndDusk`
+2. 跑菜单：
+   - `Tools → DawnAndDusk → Build Kawaii Animator`
+   - `Tools → DawnAndDusk → Build Apartment Demo`
 3. 服务端：
 
 ```powershell
 cd server
 py -3.12 -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-.venv\Scripts\python -m pytest -q     # 预期 11 passed
+.venv\Scripts\python -m pytest -q     # 预期 12 passed
 $env:OFFLINE="1"
 .venv\Scripts\python app.py
 ```
 
 4. 验证：
-   - 浏览器 `http://127.0.0.1:8000/health`
-   - Unity Play：`过来`、`转过去`、`去窗边`、摸头/拍背
-   - 走路应为 `WalkStart → Walk → WalkStop`，拐弯触发 `Pivot`
 
-## 3.1 需要抽的 7 个 FBX
+- `http://127.0.0.1:8000/health`
+- Unity Play：`过来`、`转过去`、`去窗边`、摸头/拍背
+- 走路：Start → Walk → Stop；拐弯触发 Pivot
 
-```
-Assets/KAWAII_ANIMATIOMS_100/Assets/Animations/
-  Idle/@KA_Idle01_breathing.FBX
-  Idle/@KA_Idle44_GreetingBow.FBX
-  Locomotion/Walk/@KA_Walk01.FBX
-  Locomotion/Walk/@KA_Walk01_Start.FBX
-  Locomotion/Walk/@KA_Walk01_Stop.FBX
-  Locomotion/Walk/@KA_Walk01_Pivot.FBX
-  Sit/@KA_Sit_CrossLegs_Loop.FBX
-```
-
-（`KawaiiAnimatorBuilder` 里写死了这些路径；文件名不能改。）
-
-## 4. 不用带
-
-- `DawnAndDusk/Library/`、`Temp/`、`Logs/`（Unity 自动重建）
-- `server/.venv/`（路径绑死，重建）
-- `UnityTest` 预览工程（只为看动作）
-
-## 5. 不要做
+## 4. 不要做
 
 - 不要升级 Unity 版本
 - 不要把 Kawaii FBX / `_LocalTest` 提交到公开仓库
-- 不要在 README 写“已购买授权”（0.1 元来源说不清）
+- 不要在 README 写“已购买授权”
 - 不要把 `LLM_API_KEY` 写进仓库
 
-## 6. 下一步
+## 5. 下一步
 
-1. 验 Kawaii 的 Walk01 Start/Loop/Stop + Pivot
-2. Unity 加 `GameLog`（收到 say/commands、显示、Animator 状态），定位：
-   - 摸头对话丢失
-   - 转过去后呼吸停
+1. 验 Walk01 Start/Loop/Stop + Pivot
+2. Unity 加 `GameLog`（收到 say/commands、显示、Animator 状态）
 3. 膝枕相机（PoseCamera）
 4. 两幕状态（夜/晨）
-5. M2 录屏（12-12）
+5. M2 录屏（目标 12-12）
 
-## 7. 2026-11-14 追加：真实场景是本地资产，怎么在另一台机器复原
+## 6. 里程碑
 
-demo 现在跑在**真实公寓场景**上，但两个场景包都按授权政策放进 `_LocalTest/`（gitignore），
-所以 clone 下来只有灰盒 `NightRoom`。复原步骤：
+- M0、M1：完成
+- M2：VRM / 表情 / 摸头拍背已做；剩相机、两幕、录屏
 
-| 资产 | 路径 | 大小 |
-|---|---|---|
-| Kawaii 动画包 | `C:\baidunetdiskdownload\KAWAII ANIMATIONS 100 v1.10.3.unitypackage` | 78.5 MB |
-| 公寓场景包（MR 变体用这个） | `ArchVizPRO Interior Vol8 URP 1.0.unitypackage` | 3.1 GB |
+---
 
-```powershell
-# 1) 动画（详见第 3 节，抽 7 个 FBX 到 Assets/_LocalTest/Kawaii/）
-# 2) 公寓：包解开后把 Assets/ArchVizPRO_Interior_Vol.8_URP/ 整个放进
-#    DawnAndDusk/Assets/_LocalTest/ArchViz/，保留 .meta
-```
-
-导入后在 Unity 里跑菜单：
-
-```text
-Tools → DawnAndDusk → Build Kawaii Animator     # 生成 controller + 步速表
-Tools → DawnAndDusk → Build Apartment Demo      # 生成 ApartmentDemo.unity（主卧机位 + 锚点 + 组件）
-```
-
-`ApartmentDemo.unity` 的机位、锚点、组件全在 `ApartmentSceneBuilder.cs` 里用代码声明，
-改坐标直接改那个文件再跑一次菜单即可（锚点落进床的包围盒会报错提示）。
-
-> 注意：`ProjectSettings` 里的质量档当前是 **High Fidelity**（URP-HighFidelity，MSAA 4x）；
-> Game 视图记得取消 `Low Resolution Aspect Ratios`，否则画面和 UI 都会糊。
-
-## 8. 2026-11-15 动画接缝专项（结论 + 待办）
-
-### 8.1 走路卡死的根因（已修）
-
-`KawaiiAnimatorBuilder.SetLoop()` 用的是 `AnimationUtility.SetAnimationClipSettings`，
-对 **FBX 导入片段只改内存对象、不写回 `.meta`**，所以 Idle/Walk 播一遍就钳在末帧：
-Walk 停住 = 根位移归零、人卡在半路；Idle 停住 = "转过去后呼吸停"。
-已改为直接写 `ModelImporter.clipAnimations[].loopTime` + `SaveAndReimport()`，
-`KawaiiAnimatorVerifier` 新增 2.1 节断言（Idle/Walk/Sit 必须 loop，Start/Stop 必须不 loop）。
-
-同批修复：`Animator.CrossFade(name, duration)` 的 duration 是**归一化时间**（Idle 6.67 秒 ⇒ 0.1 实为 0.67 秒），
-`WalkStart` 因此常常进场就跨过 `exitTime=0.8`，起步片段播到末帧才切——改用 `CrossFadeInFixedTime`。
-
-### 8.2 接缝多拖位移（已量化，修法已上）
-
-实测每次 `WalkStart → Walk` 会多走约 **0.10 米**，且与混合时长无关：
-
-| 混合时长 | 接缝窗口位移 | 峰值 |
-|---|---|---|
-| 0.30 s | 0.358 / 0.373 m | 1.5~1.6 m/s |
-| 0.15 s | 0.225 / 0.227 m | 1.9~2.48 m/s |
-
-用「固定偏移 + 步速 × 窗口」拟合得 F ≈ 0.095 m、v ≈ 1.08 m/s（两个窗口解出同一组值）⇒
-**两段片段的根偏移不闭合，混合时这段差值被当成位移拖过去**（不是两段叠加）。
-峰值 ≈ `F/窗口 + 步速`，所以混合越短越"猛"。
-
-当前措施：`RootMotionRelay.maxSpeed = 1.35`（限速削峰，少走的 0.10m 由到站吸附兜住）。
-**根治**：跑 `Tools → DawnAndDusk → Analyze Kawaii Clips`，看各片段"首帧/末帧根平面偏移"，
-把 `WaveStart` 的裁剪末帧挪到与 `Walk` 首帧偏移一致的位置，然后可把混合调回 0.15~0.2。
-
-### 8.3 调试工具
-
-| 工具 | 用途 |
-|---|---|
-| `Logs/game.jsonl` | 10 Hz 结构化日志（anim / rootmotion / seam / rm_stall / move_stall / walk_end…） |
-| `tools/walk-excess.ps1` | 对比路径折线与身体累计位移，输出超量 / 百分比 / 峰值 |
-| `seam` 事件 | 过渡期间每 0.05s 的根位移窗口（cur/next/tNorm/sum/v） |
-| `rm_clamp` 事件 | 限速削掉了多少（cut） |
-| `rm_stall` 事件 | 走路状态且根位移为 0 时的 Animator 全量快照 |
-
-> 注意：`GameLog` 的时间戳键是 `t`，业务字段不要再用 `t`（曾把时间戳覆盖成"走了几秒"，已改 `walkSec`）。
-### 8.4 片段根偏移实测（`Tools → Analyze Kawaii Clips`，2026-11-15 02:56）
-
-| 片段 | 首帧 (x,z) | 末帧 (x,z) | 位移 |
-|---|---|---|---|
-| WalkStart | (0.000, 0.005) | (-0.021, 0.404) | 0.399 m |
-| Walk | (-0.016, 1.959) | (-0.016, 3.365) | 1.406 m（一个循环） |
-| WalkStop | (0.001, 5.235) | (0.000, 5.331) | 0.097 m |
-| Pivot | (-0.012, 2.090) | (-0.007, 1.178) | -0.912 m |
-| Idle / Sit | — | — | 0（原地） |
-
-**注意**：这几个是作者分别提供的独立 FBX（不是从一条 take 里切出来的），
-每个文件的根坐标基准不同（Start 0.005 / Walk 1.959 / Stop 5.235）——那是导出保留的源场景绝对位置，
-Unity 进入状态时会把根位置归零，因此「末帧减首帧」不能直接当接缝偏移用。
-
-已知事实只有：`WalkStart → Walk` 每次多走 ≈0.095 m，与混合时长无关；
-`maxSpeed=1.35` 只削峰（2.48→1.35），不减少总量（0.358→0.332）。
-下一个可做的实验：把 `startToLoop.exitTime` 从 0.8 降到 0.62（等价于把 Start 提前收尾），
-若超量随「收尾时剩余的根位移」等比下降 ⇒ 偏移驱动；若不变 ⇒ 另有机制。
-### 8.5 决策：不裁剪片段（2026-11-15）
-
-结论：**不采用"裁 Start 尾帧闭合偏移"的方案。**
-
-理由：
-1. 素材是作者**分别提供的四个文件**（`@KA_Walk01.FBX` 循环、`_Start`、`_Stop`、`_Pivot`），
-   本来就是配套设计——2026-11-13 那晚已确认过"只用循环"还是"起止也加上"，最终选了全用。
-   作者本身的衔接是好的：Start 末帧根速 0.90、Walk 首帧 0.96，只差 6%。
-   接缝那 0.095m 更可能来自**交叉淡入时的姿态混合（髋部）**，不是原动画的缺陷。
-   （注：三个文件的根坐标基准不同——Start 0.005、Walk 1.959、Stop 5.235——
-   这是导出保留的源场景绝对位置，Unity 进入状态时会归零，不构成接缝偏移。
-   所以不能拿"末帧减首帧"当接缝偏移用。）
-2. 要消掉 0.095m，按 Start 平均根速 0.46 m/s 算，得砍掉约 0.2 秒（24 帧里的 6 帧，占 25%），
-   正好是抬脚蹬地那一段——砍掉后起步会变成"突然开始滑行"，反而更糟。
-
-因此保留现状：
-- `RootMotionRelay.maxSpeed = 1.35` 限制接缝峰值（2.48 → 1.35），观感上"猛"的问题已解决；
-- 剩余 0.095m 约等于 3m 路程的 3%，摊在 0.25 秒里，不构成可见问题。
-
-若将来要求"零瑕疵"，正确方向不是裁帧，而是**去掉三状态拆分**：
-用 `Idle + Walk` 的 1D Blend Tree，按 `Speed` 或归一化速度混合，
-让起步/收势由混合权重自然产生（这是 locomotion 的标准做法）。
-代价：状态机重建 + Start/Stop 两个片段退居不用，需要重新调手感。
-### 8.6 最后一个实验：exitTime 不是杠杆（2026-11-15 03:30）
-
-把 `startToLoop.exitTime` 从 0.8 降到 0.62（让起步片段提前收尾，收尾时已走位移从 0.239m 降到 0.153m），
-接缝窗口积分几乎没变：
-
-| 配置 | 接缝积分 | 限速削掉 | 峰值 |
-|---|---|---|---|
-| exitTime 0.80 | 0.332 / 0.332 m | ~0.03 m | 1.353 |
-| exitTime 0.62 | 0.300 / 0.288 m | 0.041 / 0.043 m | 1.35 |
-
-扣掉限速削掉的量，两者都是 ~0.34m，差 4%。
-
-**结论：接缝超量由「两段末/首帧的姿态差」决定，与收尾时剩余多少位移无关。**
-exitTime 已改回作者值 0.8，不再在这个旋钮上尝试。
-
-至此动画接缝这条线收束：
-- 卡死 / 呼吸停 / 起步空档：已修（loopTime + CrossFadeInFixedTime）
-- 起步"猛"：已削峰（maxSpeed 1.35，2.48 → 1.35）
-- 剩余 ~0.1m 接缝位移：**不改**。它是低多边形角色在姿态切换处的固有代价，
-  唯一根治路径是 Idle+Walk 的 Blend Tree（等价于去掉 Start/Stop 两段，与作者素材设计相悖），
-  已决定不做。
-## 9. 构建/调试注意事项（2026-11-15 04:50 补）
-
-### 9.1 构建完可以直接 Play
-
-`Shoot()` 拍预览图时会临时移动主相机，早期版本拍完不恢复，导致**内存里的场景**停在
-最后一张 `05-window-wall` 的机位（`(3.6,1.6,3.1)`、yaw 195°）——构建后直接 Play 会"从窗边朝门口看"，
-而磁盘上的 `.unity` 是对的。已修：拍完恢复相机 local 变换。
-
-如果仍看到异常视角，先读 `Logs/game.jsonl` 里的 `spawn` 事件确认 `camLocal=(0,0.90,0)`、`yaw≈0`。
-
-### 9.2 玩家侧日志
-
-| 事件 | 频率 | 内容 |
-|---|---|---|
-| `spawn` / `spawn_after_stand` | 进入 Play / 起身 | pos、camPos、camLocal、camParent、yaw、fov、到门/椅/窗距离、正前方 8m 射线命中 |
-| `player` | 1 Hz | pos、垂直速度 v、grounded、ctrl、seated、camY |
-| `player_stand` | 起身一次 | 起身落点 |
-
-`front`（射线命中）是判断"眼前是什么"的最硬证据——比任何坐标推算都可靠。
-
-### 9.3 场景里哪些东西被改过
-
-- 玩家：出生 `(3.30, 0.05, 0.62)` 坐姿；起身落点 `(2.05, 0.05, 0.55)`（门口空地）；
-  眼高 坐 0.90 / 站 1.63（175cm 的人因比例）；`stepOffset` 保持默认 0.3（允许蹭上床）
-- 家具：**全部还原**，不再隐藏任何物件（床、椅子、靠垫都在原位）
-- 鲸鲸：身高固定 1.62m（按 VRM 原始高度自动缩放），`maxSpeed=1.35` 限制根位移尖峰
+> 维护：Mew-2（人）+ DeepSeek（DSH，AI）｜最后核对 2026-11-16

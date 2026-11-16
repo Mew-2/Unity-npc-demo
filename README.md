@@ -33,7 +33,7 @@
 
 加分1/3/4/6（TA、引擎 C++、后训练、深度体验）没有，不写进 demo。
 
-- 当前状态：规格定稿中（[PROGRESS.md](PROGRESS.md)）
+- 当前状态：可运行 demo 开发中（[docs/HANDOFF.md](docs/HANDOFF.md)）
 - 规格文档：[docs/SPEC.md](docs/SPEC.md)
 
 ## 结构
@@ -44,4 +44,4 @@
 | `server/` | FastAPI 编排服务（建设中） |
 | `docs/` | 规格与设计 |
 
-进度以 [PROGRESS.md](PROGRESS.md) 为准。
+实时状态以 [docs/HANDOFF.md](docs/HANDOFF.md) 为准；经验与决策见 [docs/LESSONS.md](docs/LESSONS.md)。
