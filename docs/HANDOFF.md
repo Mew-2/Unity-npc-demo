@@ -1,17 +1,19 @@
 # 交接：实时可用
 
 > 最后更新：2026-11-16 ｜ 对应 commit：以 `git log -1` 为准
-> 下次先做：打开 `ApartmentDemo`，验 Walk / Pivot，再查摸头对话与呼吸
+> 下次先做：对话站位（玩家身体朝向 + 视线校验），再验跨房间 NavMesh
 
 ## 0. 当前状态
 
 - **场景**：`Assets/_LocalTest/ArchViz/3D SCENE/ApartmentDemo.unity`（本地资产，不入库）
+- **导航**：NavMesh 已烘焙到客厅，`NpcAgent` 优先用 `NavMesh.CalculatePath`，位移仍走 root motion
 - **动画**：root motion，`WalkStart → Walk → WalkStop`，拐点 `Pivot`；Idle 循环
 - **服务端**：FastAPI + `/direct` + 校验 + 离线回放 + structlog；`pytest 12 passed`
 - **玩家**：起床坐姿，眼高 0.90 / 站 1.63；鲸鲸固定 1.62m
 - **已知限制**：
-  - 导航网格只覆盖卧室；床膨胀后可行走区域很窄
-  - Pivot 片段自带位移，`autoPivot=false`
+  - 对话站位仍用相机前方，玩家俯仰时目标会飘；未做视线校验
+  - 玩家不在 NavMesh 上，靠近时可能穿身/推人
+  - 跨房间锚点还没铺；`Pivot` 片段自带位移，`autoPivot=false`
   - `say / commands / 表情 / 摸头` 尚未进 `game.jsonl`
 
 ## 1. 必须拷到另一台电脑（不在 GitHub）
@@ -44,6 +46,7 @@ cd Unity-npc-demo
 2. 跑菜单：
    - `Tools → DawnAndDusk → Build Kawaii Animator`
    - `Tools → DawnAndDusk → Build Apartment Demo`
+   - `Tools → DawnAndDusk → Bake House NavMesh`
 3. 服务端：
 
 ```powershell
@@ -70,11 +73,11 @@ $env:OFFLINE="1"
 
 ## 5. 下一步
 
-1. 验 Walk01 Start/Loop/Stop + Pivot
-2. Unity 加 `GameLog`（收到 say/commands、显示、Animator 状态）
-3. 膝枕相机（PoseCamera）
-4. 两幕状态（夜/晨）
-5. M2 录屏（目标 12-12）
+1. 对话站位：用玩家身体 yaw + `Physics.Linecast` 视线校验，距离 1.0m
+2. 玩家加 `NavMeshObstacle`（Carve），避免穿身/推人
+3. 跨房间锚点 + `NavMeshLink`，验证客厅/走廊
+4. Unity 加 `GameLog`（收到 say/commands、显示、Animator 状态）
+5. 膝枕相机 + 两幕状态 + M2 录屏（12-12）
 
 ## 6. 里程碑
 

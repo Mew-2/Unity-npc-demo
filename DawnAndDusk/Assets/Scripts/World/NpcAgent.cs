@@ -1,14 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// 沿锚点图移动的 NPC。
 ///
-/// 为什么不用 NavMesh：
-///   50h 里 Unity 零基础，NavMesh 要烘焙 + 调参 + 排错；
-///   锚点图是"预设点 + 预设边 + 直线插值"，确定、可调试，
-///   也符合"LLM 只在语义锚点里选"的设计（见 SPEC §1）。
+/// 路径优先用 NavMesh；没有烘焙数据时回退锚点图/栅格。
+/// 位移仍由 root motion 驱动，NavMesh 只负责算折线，避免滑步。
 ///
 /// 为什么用协程：
 ///   移动要跨多帧，逐帧 MoveTowards；协程能中途被打断（新指令覆盖旧指令），
@@ -33,6 +32,12 @@ public class NpcAgent : MonoBehaviour
 
     [Tooltip("walk_end 判定「到达」的容差（米）")]
     public float reachedTolerance = 0.4f;
+
+    [Tooltip("走到玩家身边时希望保持的贴身距离（米）；只在路径末端已超过它时才回退")]
+    public float playerStopGap = 0.75f;
+
+    [Tooltip("有 NavMesh 时优先用 NavMesh 算路径；没有则回退栅格/锚点图")]
+    public bool useNavMesh = true;
 
     [Tooltip("单段路最长走多久（秒），超时放弃该段")]
     public float segmentTimeout = 12f;
@@ -143,6 +148,29 @@ public class NpcAgent : MonoBehaviour
 
         const float stopDistance = 0.9f;
         var fullPath = new List<Vector3>();
+        if (useNavMesh && TryNavMeshPathToPlayer(toPlayer, out var navPoints, out var navEndDistance))
+        {
+            var gap = playerStopGap > 0.05f ? playerStopGap : 0.75f;
+            var trim = Mathf.Max(0f, navEndDistance - gap);
+            var trimmed = TrimPathTail(navPoints, trim);
+            if (trimmed.Count >= 2)
+            {
+                var stop = trimmed[trimmed.Count - 1];
+                GameLog.Event("walk_target", "to", "player",
+                    "via", $"navmesh+trim@{trim:F2}",
+                    "endDist", GameLog.F(navEndDistance),
+                    "stopDist", GameLog.F(FlatDistance(stop, toPlayer)),
+                    "point", $"{stop.x:F2},{stop.z:F2}");
+                StartMove(trimmed, "player", "navmesh");
+                return;
+            }
+
+            GameLog.Event("walk_target", "to", "player", "via", "navmesh_already_close",
+                "dist", GameLog.F(FlatDistance(transform.position, toPlayer)));
+            TurnTo("player");
+            return;
+        }
+
         if (pathfinder != null && pathfinder.TryFindPath(transform.position, toPlayer, fullPath) && fullPath.Count >= 2)
         {
             var trimmed = TrimPathTail(fullPath, stopDistance);
@@ -175,10 +203,93 @@ public class NpcAgent : MonoBehaviour
         Debug.LogWarning("[NpcAgent] 过来：找不到任何可行目的地");
     }
 
+    /// <summary>用 NavMesh 算到某个世界点的完整折线；没有烘焙数据时返回 false。</summary>
+    bool TryNavMeshPath(Vector3 target, List<Vector3> points)
+    {
+        points.Clear();
+        if (!NavMesh.SamplePosition(target, out var hit, 2f, NavMesh.AllAreas))
+        {
+            return false;
+        }
+
+        var path = new NavMeshPath();
+        if (!NavMesh.CalculatePath(transform.position, hit.position, NavMesh.AllAreas, path))
+        {
+            return false;
+        }
+
+        if (path.status != NavMeshPathStatus.PathComplete || path.corners.Length < 2)
+        {
+            return false;
+        }
+
+        points.AddRange(path.corners);
+        return true;
+    }
+
+    /// <summary>算到玩家身边；优先取玩家面朝方向前方，避免从身后穿过玩家。</summary>
+    bool TryNavMeshPathToPlayer(Vector3 playerPos, out List<Vector3> points, out float endDistance)
+    {
+        points = new List<Vector3>();
+        endDistance = 0f;
+
+        var gap = playerStopGap > 0.05f ? playerStopGap : 0.75f;
+
+        // 玩家不在 NavMesh 上（坐床/站床边），SamplePosition(playerPos) 可能落到身后。
+        // 先取“玩家视线前方 gap 米”的点：她应该出现在玩家正面，而不是穿过去。
+        var cam = Camera.main;
+        var forward = cam != null ? cam.transform.forward : transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f)
+        {
+            forward = playerPos - transform.position;
+            forward.y = 0f;
+        }
+
+        var desired = forward.sqrMagnitude > 0.001f
+            ? playerPos + forward.normalized * gap
+            : playerPos;
+
+        var found = NavMesh.SamplePosition(desired, out var hit, 1.2f, NavMesh.AllAreas);
+        if (!found)
+        {
+            // 前方被家具挡住：退回玩家最近可走点，但太贴脸就不用，避免穿模
+            if (!NavMesh.SamplePosition(playerPos, out hit, 3f, NavMesh.AllAreas))
+            {
+                return false;
+            }
+
+            if (FlatDistance(hit.position, playerPos) < gap * 0.8f)
+            {
+                return false;
+            }
+        }
+
+        var path = new NavMeshPath();
+        if (!NavMesh.CalculatePath(transform.position, hit.position, NavMesh.AllAreas, path))
+        {
+            return false;
+        }
+
+        if (path.status != NavMeshPathStatus.PathComplete || path.corners.Length < 2)
+        {
+            return false;
+        }
+
+        points.AddRange(path.corners);
+        endDistance = FlatDistance(hit.position, playerPos);
+        return true;
+    }
+
     /// <summary>把折线路径的末端按 distance 截断（从终点往回退），返回新的折线。</summary>
     static List<Vector3> TrimPathTail(List<Vector3> path, float distance)
     {
         var result = new List<Vector3>(path);
+        if (distance <= 0.001f)
+        {
+            return result;
+        }
+
         var remaining = distance;
         while (result.Count >= 2)
         {
@@ -203,7 +314,7 @@ public class NpcAgent : MonoBehaviour
     }
 
     /// <summary>直接按世界折线开始移动（"过来"这类动态目的地用）。</summary>
-    void StartMove(List<Vector3> points, string label)
+    void StartMove(List<Vector3> points, string label, string source = "grid")
     {
         if (_animationDriver == null)
         {
@@ -214,7 +325,7 @@ public class NpcAgent : MonoBehaviour
             "walk_accept",
             "from", CurrentAnchorId,
             "to", label,
-            "source", "grid",
+            "source", source,
             "points", points.Count.ToString(),
             "route", string.Join(";", points.ConvertAll(p => $"{p.x:F2},{p.z:F2}")));
 
@@ -284,29 +395,33 @@ public class NpcAgent : MonoBehaviour
         }
 
         var points = new List<Vector3>();
-        var source = "grid";
-        if (pathfinder != null && pathfinder.TryFindPath(transform.position, target.Value, points) && points.Count >= 2)
+        var source = "navmesh";
+        if (!(useNavMesh && TryNavMeshPath(target.Value, points)))
         {
-            // 栅格寻路的点已经是世界坐标
-        }
-        else
-        {
-            source = "anchor";
-            points.Clear();
-            var path = graph.FindPath(CurrentAnchorId, anchorId);
-            if (path.Count < 2)
+            source = "grid";
+            if (pathfinder != null && pathfinder.TryFindPath(transform.position, target.Value, points) && points.Count >= 2)
             {
-                GameLog.Event("walk_reject", "from", CurrentAnchorId, "to", anchorId, "pathLen", path.Count.ToString(), "source", source);
-                Debug.LogWarning($"[NpcAgent] 到不了 {anchorId}（不可达或已经在原地）");
-                return;
+                // 栅格寻路的点已经是世界坐标
             }
-
-            foreach (var id in path)
+            else
             {
-                var p = AnchorPosition(id);
-                if (p.HasValue)
+                source = "anchor";
+                points.Clear();
+                var path = graph.FindPath(CurrentAnchorId, anchorId);
+                if (path.Count < 2)
                 {
-                    points.Add(p.Value);
+                    GameLog.Event("walk_reject", "from", CurrentAnchorId, "to", anchorId, "pathLen", path.Count.ToString(), "source", source);
+                    Debug.LogWarning($"[NpcAgent] 到不了 {anchorId}（不可达或已经在原地）");
+                    return;
+                }
+
+                foreach (var id in path)
+                {
+                    var p = AnchorPosition(id);
+                    if (p.HasValue)
+                    {
+                        points.Add(p.Value);
+                    }
                 }
             }
         }
