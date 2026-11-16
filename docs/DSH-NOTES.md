@@ -1,7 +1,8 @@
 # DSH 环境调试教训（2026-11-16，公司网络）
 
 > 记录一次“拉代码/写文件到处报错”的排查，给其他 DSH 用户参考。
-> 结论只代表 **Windows + 公司网络 + DSH workspace-write** 这一组合，家里网络需重测。
+> **重要：本文所有耗时、镜像、配置结论都只来自“这台公司电脑 + 公司网络”的一次样本，不能直接套用到出租屋/家里。**
+> 换网络、换机器后请按第 6 节重新测，不要照搬这里的 remote/代理配置。
 
 ## 1. Git 报 schannel 凭据错误
 
@@ -29,7 +30,7 @@ git config http.version HTTP/1.1
 
 **结论**：小请求（ls-remote/info/refs）能过不代表 pack 能过。代理对长连接/大包的缓冲会挂。
 
-**实测（OpenSSL + HTTP/1.1，公司网络）**
+**实测（本次公司网络样本，换网络可能完全不同）**
 
 | 方式 | `clone --depth=1` |
 |---|---|
@@ -66,7 +67,7 @@ git config http.version HTTP/1.1
 4. 动 git 前先 `git status`；实验前打快照/分支，失败可回。
 5. 记录**耗时和 commit**，否则“感觉快了”没有意义。
 
-## 6. 可用配置（本仓库当前）
+## 6. 本机参考配置（换机/换网络必须重测，不可照搬）
 
 ```powershell
 git config http.sslBackend openssl
