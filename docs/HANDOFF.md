@@ -9,7 +9,7 @@
 - **导航**：NavMesh 已烘焙到客厅，`NpcAgent` 优先用 `NavMesh.CalculatePath`，位移仍走 root motion
 - **动画**：root motion，`WalkStart → Walk → WalkStop`，拐点 `Pivot`；Idle 循环
 - **服务端**：FastAPI + `/direct` + 校验 + 离线回放 + structlog；`pytest 12 passed`
-- **玩家**：175cm；起床坐姿眼高 0.95 / 站 1.63；鲸鲸 1.69m
+- **玩家**：175cm；初始躺姿眼高 0.35 / 站 1.63；出生在床头中间（Base max.x-0.35）；鲸鲸 1.69m
 - **对话站位**：一次到位 1.0m，不跟随；用相机 yaw 取前方点，实测俯仰无影响
 - **已知限制**：
   - 玩家不在 NavMesh 上，极端贴墙可能穿身/推人（未加 NavMeshObstacle）

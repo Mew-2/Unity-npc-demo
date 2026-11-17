@@ -14,7 +14,8 @@ public class PlayerController : MonoBehaviour
 
     [Header("视角高度")]
     public Transform cameraTransform;
-    public float seatedHeight = 0.95f;
+    [Tooltip("躺/坐在床上时的眼高（相对床面）")]
+    public float seatedHeight = 0.35f;
     public float standingHeight = 1.63f;
 
     [Tooltip("开局是否躺在床上（碰撞体先关掉，按移动键时瞬移到床边并启用碰撞）")]
@@ -25,6 +26,12 @@ public class PlayerController : MonoBehaviour
 
     [Tooltip("起身后站定的位置（世界坐标，必须是空地）")]
     public Vector3 standUpPosition;
+
+    [Header("坐床边出生（覆盖场景坐标）")]
+    public bool useSeatedSpawn = true;
+    public Vector3 seatedSpawnPosition = new Vector3(3.45f, 0.55f, 2.65f);
+    public Vector3 seatedLookTarget = new Vector3(2.85f, 1.25f, 3.35f);
+    public Vector3 seatedStandPosition = new Vector3(3.45f, 0.05f, 1.55f);
 
     [Tooltip("起身时相机高度过渡速度（米/秒）")]
     public float heightLerpSpeed = 1.6f;
@@ -39,15 +46,56 @@ public class PlayerController : MonoBehaviour
         _controller = GetComponent<CharacterController>();
         _seated = startSeated;
 
-        // 旧场景序列化的是 1.02 / 1.58，按 175cm 玩家迁移到 0.95 / 1.63。
-        if (Mathf.Approximately(seatedHeight, 1.02f))
+        // 旧场景序列化的是 1.02 / 0.95 坐姿，按躺姿 0.35 迁移；站姿 1.58 → 1.63。
+        if (Mathf.Approximately(seatedHeight, 1.02f) || Mathf.Approximately(seatedHeight, 0.95f))
         {
-            seatedHeight = 0.95f;
+            seatedHeight = 0.35f;
         }
 
         if (Mathf.Approximately(standingHeight, 1.58f))
         {
             standingHeight = 1.63f;
+        }
+
+        if (_seated && useSeatedSpawn)
+        {
+            var spawn = seatedSpawnPosition;
+            var lookTarget = seatedLookTarget;
+            var hasBed = TryFindBedBounds(out var bed);
+
+            // 床的长度方向是 X：枕头在 max.x 侧，宽度方向是 Z
+            if (hasBed)
+            {
+                var spawnX = bed.max.x - 0.35f;
+                var spawnZ = bed.center.z;
+                spawn = new Vector3(spawnX, bed.center.y, spawnZ);
+                standUpPosition = FindStandPosition(spawn, bed);
+
+                var bedAnchor = GameObject.Find("Anchor_bed");
+                if (bedAnchor != null)
+                {
+                    lookTarget = bedAnchor.transform.position + Vector3.up * 1.2f;
+                }
+            }
+
+            // 从上方往下打，落在床面而不是固定 y，避免床高变化后悬空/陷进去
+            if (Physics.Raycast(new Vector3(spawn.x, spawn.y + 2f, spawn.z), Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                spawn.y = hit.point.y + 0.02f;
+            }
+
+            transform.position = spawn;
+            if (!hasBed)
+            {
+                standUpPosition = seatedStandPosition;
+            }
+
+            var look = lookTarget - (spawn + Vector3.up * seatedHeight);
+            look.y = 0f;
+            if (look.sqrMagnitude > 0.001f)
+            {
+                transform.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
+            }
         }
 
         if (_seated)
@@ -159,5 +207,133 @@ public class PlayerController : MonoBehaviour
                 "seated", _seated ? "1" : "0",
                 "camY", cameraTransform != null ? GameLog.F(cameraTransform.position.y) : "-");
         }
+    }
+
+    static bool TryFindBedBounds(out Bounds bed)
+    {
+        bed = default;
+
+        var hasBase = false;
+        var baseVolume = 0f;
+        var baseBounds = default(Bounds);
+        var baseName = string.Empty;
+
+        var hasSurface = false;
+        var surfaceVolume = 0f;
+        var surfaceBounds = default(Bounds);
+        var surfaceName = string.Empty;
+
+        var anyVolume = 0f;
+        var anyBounds = default(Bounds);
+        var anyName = string.Empty;
+
+        foreach (var renderer in FindObjectsOfType<Renderer>())
+        {
+            if (!renderer.enabled || !renderer.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            var name = renderer.gameObject.name;
+            var lower = name.ToLowerInvariant();
+            if (lower.IndexOf("bed_bedroom", System.StringComparison.Ordinal) < 0)
+            {
+                continue;
+            }
+
+            var b = renderer.bounds;
+            var volume = b.size.x * b.size.z;
+
+            // 只认床垫 Base；没有 Base 才退回 Cover/Mattress
+            if (lower.Contains("base") && volume > baseVolume)
+            {
+                hasBase = true;
+                baseVolume = volume;
+                baseBounds = b;
+                baseName = name;
+            }
+
+            var isSurface = lower.Contains("cover") || lower.Contains("mattress");
+            if (isSurface && volume > surfaceVolume)
+            {
+                hasSurface = true;
+                surfaceVolume = volume;
+                surfaceBounds = b;
+                surfaceName = name;
+            }
+
+            if (volume > anyVolume)
+            {
+                anyVolume = volume;
+                anyBounds = b;
+                anyName = name;
+            }
+        }
+
+        if (hasBase)
+        {
+            bed = baseBounds;
+            Debug.Log($"[Player] bed base={baseName} center={bed.center} size={bed.size}");
+            return true;
+        }
+
+        if (hasSurface)
+        {
+            bed = surfaceBounds;
+            Debug.Log($"[Player] bed surface={surfaceName} center={bed.center} size={bed.size}");
+            return true;
+        }
+
+        if (anyVolume > 0.01f)
+        {
+            bed = anyBounds;
+            Debug.Log($"[Player] bed fallback={anyName} center={bed.center} size={bed.size}");
+            return true;
+        }
+
+        return false;
+    }
+
+    static Vector3 FindStandPosition(Vector3 seated, Bounds bed)
+    {
+        // 床的长度方向是 X：先从“宽度两侧”（Z 方向）下床，其次床头/床尾
+        var candidates = new[]
+        {
+            new Vector3(seated.x, 0f, bed.min.z - 0.45f),
+            new Vector3(seated.x, 0f, bed.max.z + 0.45f),
+            new Vector3(bed.min.x - 0.45f, 0f, seated.z),
+            new Vector3(bed.max.x + 0.45f, 0f, seated.z),
+        };
+
+        foreach (var candidate in candidates)
+        {
+            var p = candidate;
+            p.y = GroundY(p.x, p.z, 0.05f) + 0.05f;
+            if (IsStandFree(p))
+            {
+                Debug.Log($"[Player] stand position={p.x:F2},{p.y:F2},{p.z:F2}");
+                return p;
+            }
+        }
+
+        Debug.LogWarning("[Player] 床边没有空位，回退 seatedStandPosition");
+        return new Vector3(seated.x, GroundY(seated.x, seated.z, 0.05f) + 0.05f, seated.z);
+    }
+
+    static bool IsStandFree(Vector3 position)
+    {
+        var bottom = position + Vector3.up * 0.3f;
+        var top = position + Vector3.up * 1.45f;
+        return !Physics.CheckCapsule(bottom, top, 0.28f, ~0, QueryTriggerInteraction.Ignore);
+    }
+
+    static float GroundY(float x, float z, float fallback)
+    {
+        if (Physics.Raycast(new Vector3(x, 3f, z), Vector3.down, out var hit, 6f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            return hit.point.y;
+        }
+
+        return fallback;
     }
 }
