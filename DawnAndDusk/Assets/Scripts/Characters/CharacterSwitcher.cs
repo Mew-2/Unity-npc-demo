@@ -88,6 +88,22 @@ public class CharacterSwitcher : MonoBehaviour
             visual.transform.localScale = Vector3.one * Mathf.Max(0.1f, profile.visualScale);
 
             var animator = visual.GetComponentInChildren<Animator>();
+
+            // 按目标身高自动缩放，只量“包含脚部骨骼的身体网格”，
+            // 否则尾巴/头发会把包围盒撑大，导致模型被缩得过小。
+            var targetHeight = profile.targetHeight > 0.1f ? profile.targetHeight : 1.69f;
+            var currentHeight = EstimateHeight(visual, animator);
+            if (currentHeight > 0.01f)
+            {
+                var scale = targetHeight / currentHeight;
+                visual.transform.localScale *= scale;
+                Debug.Log($"[CharacterSwitcher] 身高校准：current={currentHeight:F2}m target={targetHeight:F2}m scale×{scale:F3}");
+
+                var head = animator != null ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
+                var leftFoot = animator != null ? animator.GetBoneTransform(HumanBodyBones.LeftFoot) : null;
+                Debug.Log($"[CharacterSwitcher] 身高详情：headY={(head != null ? head.position.y : -1f):F2} footY={(leftFoot != null ? leftFoot.position.y : -1f):F2} visualY={visual.transform.position.y:F2} scaleY={visual.transform.localScale.y:F2}");
+            }
+
             if (animator != null)
             {
                 // 关键：默认的 CullUpdateTransforms 会在模型被判为"不在视野"时停更骨骼，
@@ -147,5 +163,69 @@ public class CharacterSwitcher : MonoBehaviour
         }
 
         Debug.Log($"[CharacterSwitcher] 当前角色：{profile.displayName}（{profile.id}）");
+    }
+
+    static float EstimateHeight(GameObject root, Animator animator)
+    {
+        // 优先用头骨 + 脚骨量：Renderer.bounds 会受头发/呆毛/绑定姿态影响，实测偏大。
+        var head = animator != null ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
+        var leftFoot = animator != null ? animator.GetBoneTransform(HumanBodyBones.LeftFoot) : null;
+        var rightFoot = animator != null ? animator.GetBoneTransform(HumanBodyBones.RightFoot) : null;
+        var leftToes = animator != null ? animator.GetBoneTransform(HumanBodyBones.LeftToes) : null;
+        var rightToes = animator != null ? animator.GetBoneTransform(HumanBodyBones.RightToes) : null;
+
+        if (head != null && (leftFoot != null || rightFoot != null || leftToes != null || rightToes != null))
+        {
+            var footY = float.MaxValue;
+            foreach (var foot in new[] { leftFoot, rightFoot, leftToes, rightToes })
+            {
+                if (foot != null)
+                {
+                    footY = Mathf.Min(footY, foot.position.y);
+                }
+            }
+
+            const float headTopOffset = 0.18f;
+            return Mathf.Max(0.5f, head.position.y + headTopOffset - footY);
+        }
+
+        var hasBounds = false;
+        var bounds = new Bounds();
+
+        foreach (var skinned in root.GetComponentsInChildren<SkinnedMeshRenderer>())
+        {
+            if (!skinned.enabled || skinned.bones == null)
+            {
+                continue;
+            }
+
+            var hasFoot = false;
+            foreach (var bone in skinned.bones)
+            {
+                if (bone == leftFoot || bone == rightFoot || bone == leftToes || bone == rightToes)
+                {
+                    hasFoot = true;
+                    break;
+                }
+            }
+
+            // 身体网格（含脚和头）才算身高；尾巴/头发/衣服单独网格跳过
+            if (!hasFoot)
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                bounds = skinned.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(skinned.bounds);
+            }
+        }
+
+        return hasBounds ? bounds.size.y : 0f;
     }
 }

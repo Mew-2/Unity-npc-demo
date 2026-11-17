@@ -14,8 +14,8 @@ public class PlayerController : MonoBehaviour
 
     [Header("视角高度")]
     public Transform cameraTransform;
-    public float seatedHeight = 1.02f;
-    public float standingHeight = 1.58f;
+    public float seatedHeight = 0.95f;
+    public float standingHeight = 1.63f;
 
     [Tooltip("开局是否躺在床上（碰撞体先关掉，按移动键时瞬移到床边并启用碰撞）")]
     public bool startSeated = true;
@@ -38,6 +38,17 @@ public class PlayerController : MonoBehaviour
     {
         _controller = GetComponent<CharacterController>();
         _seated = startSeated;
+
+        // 旧场景序列化的是 1.02 / 1.58，按 175cm 玩家迁移到 0.95 / 1.63。
+        if (Mathf.Approximately(seatedHeight, 1.02f))
+        {
+            seatedHeight = 0.95f;
+        }
+
+        if (Mathf.Approximately(standingHeight, 1.58f))
+        {
+            standingHeight = 1.63f;
+        }
 
         if (_seated)
         {

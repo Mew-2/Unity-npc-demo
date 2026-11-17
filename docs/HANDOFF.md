@@ -9,10 +9,10 @@
 - **导航**：NavMesh 已烘焙到客厅，`NpcAgent` 优先用 `NavMesh.CalculatePath`，位移仍走 root motion
 - **动画**：root motion，`WalkStart → Walk → WalkStop`，拐点 `Pivot`；Idle 循环
 - **服务端**：FastAPI + `/direct` + 校验 + 离线回放 + structlog；`pytest 12 passed`
-- **玩家**：起床坐姿，眼高 0.90 / 站 1.63；鲸鲸固定 1.62m
+- **玩家**：175cm；起床坐姿眼高 0.95 / 站 1.63；鲸鲸 1.69m
+- **对话站位**：一次到位 1.0m，不跟随；用相机 yaw 取前方点，实测俯仰无影响
 - **已知限制**：
-  - 对话站位仍用相机前方，玩家俯仰时目标会飘；未做视线校验
-  - 玩家不在 NavMesh 上，靠近时可能穿身/推人
+  - 玩家不在 NavMesh 上，极端贴墙可能穿身/推人（未加 NavMeshObstacle）
   - 跨房间锚点还没铺；`Pivot` 片段自带位移，`autoPivot=false`
   - `say / commands / 表情 / 摸头` 尚未进 `game.jsonl`
 

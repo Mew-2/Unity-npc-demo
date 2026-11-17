@@ -34,7 +34,7 @@ public class NpcAgent : MonoBehaviour
     public float reachedTolerance = 0.4f;
 
     [Tooltip("走到玩家身边时希望保持的贴身距离（米）；只在路径末端已超过它时才回退")]
-    public float playerStopGap = 0.75f;
+    public float playerStopGap = 1.0f;
 
     [Tooltip("有 NavMesh 时优先用 NavMesh 算路径；没有则回退栅格/锚点图")]
     public bool useNavMesh = true;
@@ -98,6 +98,12 @@ public class NpcAgent : MonoBehaviour
 
     void Awake()
     {
+        // 旧场景序列化的是 0.55m，运行时迁移到新的对话距离。
+        if (playerStopGap < 0.95f)
+        {
+            playerStopGap = 1.0f;
+        }
+
         if (graph == null)
         {
             graph = FindObjectOfType<AnchorGraph>();
