@@ -71,6 +71,22 @@ $env:OFFLINE="1"
 - 不要在 README 写“已购买授权”
 - 不要把 `LLM_API_KEY` 写进仓库
 
+## 4.5 膝枕 v1（2026-11-22 实现，待实机验证）
+
+流程：`想要膝枕` → 她走到床头坐下（`SitStart → SitLoop`）→ 玩家靠近 1.1m → 自动切 POV
+（相机降到膝上仰视 + `NpcLookAtIK` 低头看你）→ `起来` 退出。
+
+- 坐姿三件套：`@KA_Sit_Start` / `@KA_Sit_LookingAround`（循环）/ `@KA_Sit_End`
+  —— 包里**没有**裸的 `@KA_Sit`，`LookingAround` 与 Start/End 同在 `Sit/TransitionFromStandingPose/`
+- `LapPillowController`：座位按床的包围盒运行时计算（床头往床尾退 0.62m），不写死坐标
+- `NpcLookAtIK`：`OnAnimatorIK` 抬头/低头；controller 层已开 `iKPass`
+- 指令：`set npc lap|sit|stand|sing`、`set player lap|stand`；`move` 会自动退出膝枕
+- 日志：`lap_prepare` / `lap_seated` / `lap_enter` / `lap_exit` / `lyric`
+- 歌词先用占位（`♪ 窗外的天气 就像是你多变的表情 ♪`），接 AI 音色后替换
+
+**验证步骤**：`Build Kawaii Animator`（重建 controller）→ `Build Apartment Demo`（装配 LapPillow）
+→ Play → 说「想要膝枕」→ 走近 → 说「起来」。
+
 ## 5. 下一步
 
 1. 对话站位：用玩家身体 yaw + `Physics.Linecast` 视线校验，距离 1.0m

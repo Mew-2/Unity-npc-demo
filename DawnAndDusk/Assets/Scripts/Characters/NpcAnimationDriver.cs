@@ -242,6 +242,21 @@ public class NpcAnimationDriver : MonoBehaviour
             return "Pivot";
         }
 
+        if (state.IsName("SitStart"))
+        {
+            return "SitStart";
+        }
+
+        if (state.IsName("SitLoop"))
+        {
+            return "SitLoop";
+        }
+
+        if (state.IsName("SitEnd"))
+        {
+            return "SitEnd";
+        }
+
         if (state.IsName("Sit"))
         {
             return "Sit";

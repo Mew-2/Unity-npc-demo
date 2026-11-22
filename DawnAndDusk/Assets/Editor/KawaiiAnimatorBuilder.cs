@@ -27,7 +27,9 @@ public static class KawaiiAnimatorBuilder
     const string WalkStartPath = Root + "/@KA_Walk01_Start.FBX";
     const string WalkStopPath = Root + "/@KA_Walk01_Stop.FBX";
     const string WalkPivotPath = Root + "/@KA_Walk01_Pivot.FBX";
-    const string SitPath = Root + "/@KA_Sit_CrossLegs_Loop.FBX";
+    const string SitStartPath = Root + "/@KA_Sit_Start.FBX";
+    const string SitLoopPath = Root + "/@KA_Sit_LookingAround.FBX";
+    const string SitEndPath = Root + "/@KA_Sit_End.FBX";
     const string BowPath = Root + "/@KA_Idle44_GreetingBow.FBX";
 
     [MenuItem("Tools/DawnAndDusk/Build Kawaii Animator")]
@@ -42,7 +44,9 @@ public static class KawaiiAnimatorBuilder
         var walkStart = LoadClip(WalkStartPath, "KA_Walk01_Start");
         var walkStop = LoadClip(WalkStopPath, "KA_Walk01_Stop");
         var pivot = LoadClip(WalkPivotPath, "KA_Walk01_Pivot");
-        var sit = LoadClip(SitPath, "Sit_CrossLegs_Loop");
+        var sitStart = LoadClip(SitStartPath, "Sit_Start");
+        var sitLoop = LoadClip(SitLoopPath, "Sit_LookingAround");
+        var sitEnd = LoadClip(SitEndPath, "Sit_End");
         var bow = LoadClip(BowPath, "Idle44_GreetingBow");
 
         if (idle == null || walk == null)
@@ -82,6 +86,14 @@ public static class KawaiiAnimatorBuilder
         controller.AddParameter("Sit", AnimatorControllerParameterType.Bool);
         controller.AddParameter("Pivot", AnimatorControllerParameterType.Trigger);
         controller.AddParameter("Bow", AnimatorControllerParameterType.Trigger);
+
+        // 打开 IK Pass：膝枕时用 OnAnimatorIK 让她低头看玩家（NpcLookAtIK）
+        var layers = controller.layers;
+        if (layers.Length > 0)
+        {
+            layers[0].iKPass = true;
+            controller.layers = layers;
+        }
 
         var machine = controller.layers[0].stateMachine;
 
@@ -180,20 +192,55 @@ public static class KawaiiAnimatorBuilder
             pivotToIdle.duration = 0.1f;
         }
 
-        if (sit != null)
+        if (sitLoop != null)
         {
-            var sitState = machine.AddState("Sit");
-            sitState.motion = sit;
+            // 膝枕三段：坐下（Start）→ 坐着等（Loop）→ 起身（End）。
+            // Loop 用 @KA_Sit_LookingAround —— 包里没有裸的 @KA_Sit，
+            // 这个文件和 Sit_Start / Sit_End 同在 TransitionFromStandingPose 下，是配套的循环段。
+            AnimatorState sitStartState = null;
+            if (sitStart != null)
+            {
+                sitStartState = machine.AddState("SitStart");
+                sitStartState.motion = sitStart;
+            }
 
-            var toSit = idleState.AddTransition(sitState);
+            var sitLoopState = machine.AddState("SitLoop");
+            sitLoopState.motion = sitLoop;
+
+            AnimatorState sitEndState = null;
+            if (sitEnd != null)
+            {
+                sitEndState = machine.AddState("SitEnd");
+                sitEndState.motion = sitEnd;
+            }
+
+            var sitEntry = sitStartState != null ? sitStartState : sitLoopState;
+            var toSit = idleState.AddTransition(sitEntry);
             toSit.AddCondition(AnimatorConditionMode.If, 0f, "Sit");
-            toSit.duration = 0.2f;
+            toSit.duration = 0.15f;
             toSit.hasExitTime = false;
 
-            var outSit = sitState.AddTransition(idleState);
-            outSit.AddCondition(AnimatorConditionMode.IfNot, 0f, "Sit");
-            outSit.duration = 0.2f;
-            outSit.hasExitTime = false;
+            if (sitStartState != null)
+            {
+                var startToLoop = sitStartState.AddTransition(sitLoopState);
+                startToLoop.hasExitTime = true;
+                startToLoop.exitTime = 0.85f;
+                startToLoop.duration = 0.15f;
+            }
+
+            var loopExit = sitEndState != null ? (AnimatorState)sitEndState : idleState;
+            var loopToEnd = sitLoopState.AddTransition(loopExit);
+            loopToEnd.AddCondition(AnimatorConditionMode.IfNot, 0f, "Sit");
+            loopToEnd.duration = 0.15f;
+            loopToEnd.hasExitTime = false;
+
+            if (sitEndState != null)
+            {
+                var endToIdle = sitEndState.AddTransition(idleState);
+                endToIdle.hasExitTime = true;
+                endToIdle.exitTime = 0.9f;
+                endToIdle.duration = 0.15f;
+            }
         }
 
         if (bow != null)
@@ -382,7 +429,9 @@ public static class KawaiiAnimatorBuilder
         EnsureLoop(WalkStartPath, false);
         EnsureLoop(WalkStopPath, false);
         EnsureLoop(WalkPivotPath, false);
-        EnsureLoop(SitPath, true);
+        EnsureLoop(SitStartPath, false);
+        EnsureLoop(SitLoopPath, true);
+        EnsureLoop(SitEndPath, false);
         EnsureLoop(BowPath, false);
     }
 

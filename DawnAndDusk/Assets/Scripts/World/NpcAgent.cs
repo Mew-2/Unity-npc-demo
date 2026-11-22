@@ -209,6 +209,59 @@ public class NpcAgent : MonoBehaviour
         Debug.LogWarning("[NpcAgent] 过来：找不到任何可行目的地");
     }
 
+    /// <summary>
+    /// 走到任意世界点（膝枕座位这类动态位置用）。逐级兜底：NavMesh → 栅格 → 最近锚点。
+    /// stopDistance 是"停在离目标多远"，沿已求出的路径末端截断，不会退进障碍里。
+    /// </summary>
+    public void WalkToWorld(Vector3 target, string label, float stopDistance = 0.05f)
+    {
+        target.y = transform.position.y;
+
+        if (pathfinder == null)
+        {
+            pathfinder = FindObjectOfType<GridPathfinder>();
+        }
+
+        if (useNavMesh && TryNavMeshPath(target, out var navPoints) && navPoints.Count >= 2)
+        {
+            var trimmedNav = TrimPathTail(navPoints, stopDistance);
+            if (trimmedNav.Count >= 2)
+            {
+                GameLog.Event("walk_target", "to", label, "via", "navmesh",
+                    "point", $"{trimmedNav[trimmedNav.Count - 1].x:F2},{trimmedNav[trimmedNav.Count - 1].z:F2}");
+                StartMove(trimmedNav, label, "navmesh");
+                return;
+            }
+        }
+
+        if (pathfinder != null)
+        {
+            var gridPath = new List<Vector3>();
+            if (pathfinder.TryFindPath(transform.position, target, gridPath) && gridPath.Count >= 2)
+            {
+                var trimmedGrid = TrimPathTail(gridPath, stopDistance);
+                if (trimmedGrid.Count >= 2)
+                {
+                    GameLog.Event("walk_target", "to", label, "via", "grid",
+                        "point", $"{trimmedGrid[trimmedGrid.Count - 1].x:F2},{trimmedGrid[trimmedGrid.Count - 1].z:F2}");
+                    StartMove(trimmedGrid, label);
+                    return;
+                }
+            }
+        }
+
+        var bestAnchor = NearestAnchorTo(target);
+        if (!string.IsNullOrEmpty(bestAnchor))
+        {
+            GameLog.Event("walk_target", "to", label, "via", "anchor:" + bestAnchor);
+            WalkTo(bestAnchor);
+            return;
+        }
+
+        GameLog.Event("walk_target", "to", label, "via", "none");
+        Debug.LogWarning($"[NpcAgent] {label}：找不到任何可行路径");
+    }
+
     /// <summary>用 NavMesh 算到某个世界点的完整折线；没有烘焙数据时返回 false。</summary>
     bool TryNavMeshPath(Vector3 target, List<Vector3> points)
     {

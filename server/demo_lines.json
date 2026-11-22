@@ -1,6 +1,34 @@
 {
   "lines": [
     {
+      "player_text": "想要膝枕",
+      "response": {
+        "say": "……膝枕？真拿你没办法。过来吧。",
+        "commands": [
+          { "op": "set", "target": "npc", "state": "lap" },
+          { "op": "look_at", "entity": "npc", "target": "player" }
+        ]
+      }
+    },
+    {
+      "player_text": "我想听鲸鲸唱《雨爱》",
+      "response": {
+        "say": "……就唱一句哦。",
+        "commands": [
+          { "op": "set", "target": "npc", "state": "sing" }
+        ]
+      }
+    },
+    {
+      "player_text": "起来",
+      "response": {
+        "say": "嗯……那就起来吧。",
+        "commands": [
+          { "op": "set", "target": "player", "state": "stand" }
+        ]
+      }
+    },
+    {
       "player_text": "关灯，然后到床边看着我",
       "response": {
         "say": "好——灯鲸鲸关了。……才不是特意等你，是灯太亮。",

@@ -29,7 +29,9 @@ public static class KawaiiAnimatorVerifier
         Root + "/@KA_Walk01_Start.FBX",
         Root + "/@KA_Walk01_Stop.FBX",
         Root + "/@KA_Walk01_Pivot.FBX",
-        Root + "/@KA_Sit_CrossLegs_Loop.FBX",
+        Root + "/@KA_Sit_Start.FBX",
+            Root + "/@KA_Sit_LookingAround.FBX",
+            Root + "/@KA_Sit_End.FBX",
         Root + "/@KA_Idle44_GreetingBow.FBX",
     };
 
@@ -103,7 +105,9 @@ public static class KawaiiAnimatorVerifier
         Section("2.1 循环标记（必须落在导入设置里）");
         ExpectImporterLoop("@KA_Idle01_breathing.FBX", true);
         ExpectImporterLoop("@KA_Walk01.FBX", true);
-        ExpectImporterLoop("@KA_Sit_CrossLegs_Loop.FBX", true);
+        ExpectImporterLoop("@KA_Sit_Start.FBX", false);
+        ExpectImporterLoop("@KA_Sit_LookingAround.FBX", true);
+        ExpectImporterLoop("@KA_Sit_End.FBX", false);
         ExpectImporterLoop("@KA_Walk01_Start.FBX", false);
         ExpectImporterLoop("@KA_Walk01_Stop.FBX", false);
 
@@ -163,8 +167,10 @@ public static class KawaiiAnimatorVerifier
         Expect(machine, "Pivot", "Idle", "Speed Less 0.1");
         ExpectAny(machine, "Pivot", "Pivot If");
         ExpectAny(machine, "Bow", "Bow If");
-        Expect(machine, "Idle", "Sit", "Sit If");
-        Expect(machine, "Sit", "Idle", "Sit IfNot");
+        Expect(machine, "Idle", "SitStart", "Sit If");
+        Expect(machine, "SitStart", "SitLoop", null);
+        Expect(machine, "SitLoop", "SitEnd", "Sit IfNot");
+        Expect(machine, "SitEnd", "Idle", null);
 
         Section("4. 场景 / Resources 接线");
         var res = Resources.Load<RuntimeAnimatorController>("KawaiiAnimator");

@@ -13,6 +13,8 @@ public class CommandExecutor : MonoBehaviour
     public NpcAgent npc;
     public AnchorGraph graph;
     public StateSwitcher state;
+    [Tooltip("膝枕：set npc lap / set player stand 走它")]
+    public LapPillowController lap;
 
     public bool IsBusy { get; private set; }
 
@@ -48,6 +50,8 @@ public class CommandExecutor : MonoBehaviour
             switch (command.op)
             {
                 case "move":
+                    if (lap != null) { lap.Exit(); }   // 任何移动都先退出膝枕
+
                     if (!CanMove(command))
                     {
                         continue;
@@ -78,6 +82,35 @@ public class CommandExecutor : MonoBehaviour
                     break;
 
                 case "set":
+                    // 膝枕相关：npc sit/lap、player lap/stand，交给 LapPillowController
+                    if (command.target == "npc" || command.target == "player")
+                    {
+                        if (lap == null)
+                        {
+                            Debug.LogWarning($"[CommandExecutor] 没有 LapPillowController，set {command.target}={command.state} 被忽略");
+                            continue;
+                        }
+
+                        if (command.state == "lap" || command.state == "sit")
+                        {
+                            lap.Prepare();
+                        }
+                        else if (command.state == "stand")
+                        {
+                            lap.Exit();
+                        }
+                        else if (command.state == "sing")
+                        {
+                            lap.PlayLyric("♪ 窗外的天气 就像是你多变的表情 ♪\n♪ ～♪");
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"[CommandExecutor] 未知的 {command.target} 状态：{command.state}");
+                        }
+
+                        break;
+                    }
+
                     if (state == null)
                     {
                         Debug.LogWarning($"[CommandExecutor] 没有 StateSwitcher，set {command.target}={command.state} 被忽略");

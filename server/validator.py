@@ -20,6 +20,9 @@ SET_TARGETS = {
     "light": {"on", "off"},
     "curtain": {"open", "closed"},
     "outfit": {"nightgown", "daydress"},
+    # 膝枕：npc 坐下 / 停下，player 躺到膝上 / 起身
+    "npc": {"sit", "lap", "stand", "sing"},
+    "player": {"lap", "stand"},
 }
 
 

@@ -463,6 +463,14 @@ public static class ApartmentSceneBuilder
         detector.npc = npc;
         detector.reactions = reaction;
 
+        var lap = directorGo.AddComponent<LapPillowController>();
+        lap.npc = npc;
+        lap.player = player;
+        lap.playerLook = look;
+        lap.cameraTransform = camera.transform;
+        lap.dialogue = dialogue;
+        executor.lap = lap;
+
         executor.state = state;
 
         EditorSceneManager.SaveScene(scene, OutputScene);
