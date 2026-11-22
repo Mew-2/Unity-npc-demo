@@ -60,7 +60,9 @@ public static class KawaiiAnimatorBuilder
         if (walkStart != null) SetLoop(walkStart, false);
         if (walkStop != null) SetLoop(walkStop, false);
         if (pivot != null) SetLoop(pivot, false);
-        if (sit != null) SetLoop(sit, true);
+        if (sitStart != null) SetLoop(sitStart, false);
+        if (sitLoop != null) SetLoop(sitLoop, true);
+        if (sitEnd != null) SetLoop(sitEnd, false);
         if (bow != null) SetLoop(bow, false);
 
         if (!AssetDatabase.IsValidFolder(ResourcesDir))
@@ -286,7 +288,7 @@ public static class KawaiiAnimatorBuilder
             $"[Kawaii] 已生成 {ControllerPath}\n" +
             $"  Idle={idle.name}\n" +
             $"  Walk={walk.name} (Start={walkStart != null} Stop={walkStop != null} Pivot={pivot != null})\n" +
-            $"  Sit={sit != null} Bow={bow != null}");
+            $"  Sit={(sitLoop != null)} Bow={(bow != null)}");
     }
 
     /// <summary>
