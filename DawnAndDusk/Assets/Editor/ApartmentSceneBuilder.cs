@@ -474,6 +474,12 @@ public static class ApartmentSceneBuilder
         executor.state = state;
 
         EditorSceneManager.SaveScene(scene, OutputScene);
+
+        // 自动重烘 NavMesh：场景是"从源场景重建"的，NavMeshSurface 和烘焙数据都在场景里，
+        // 重建一次就没了。之前靠手动点第三次菜单，忘了就会出现"她走锚点图的老路"。
+        NavMeshBakeSetup.Bake();
+        EditorSceneManager.SaveScene(scene, OutputScene);
+
         AssetDatabase.Refresh();
 
         Debug.Log($"[Apartment] 已生成 {OutputScene}\n" +

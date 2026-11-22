@@ -27,7 +27,10 @@ public class LapPillowController : MonoBehaviour
 
     [Header("座位（相对床）")]
     [Tooltip("从床头往床尾退多少米坐下")]
-    public float seatInsetFromHead = 0.62f;
+    public float seatInsetFromHead = 0.45f;
+
+    [Tooltip("坐好后髋骨应落在床面上方多少米（自校准的目标值）")]
+    public float hipsSitOffset = 0.06f;
 
     [Tooltip("她的膝上点：沿她面朝方向往前多少米")]
     public float lapForward = 0.42f;
@@ -53,6 +56,7 @@ public class LapPillowController : MonoBehaviour
     Vector3 _savedCamLocalPos;
     Quaternion _savedCamLocalRot;
     Vector3 _seat;
+    float _surfaceY;
     Vector3 _lapPoint;
     Coroutine _transition;
 
@@ -213,7 +217,7 @@ public class LapPillowController : MonoBehaviour
         {
             if (!string.IsNullOrWhiteSpace(line))
             {
-                dialogue.ShowLine($"鲸鲸：{line.Trim()}");
+                dialogue.ShowLine(line.Trim());
                 GameLog.Event("lyric", "line", line.Trim());
                 yield return new WaitForSeconds(2.6f);
             }
@@ -265,8 +269,45 @@ public class LapPillowController : MonoBehaviour
             "lap_seated",
             "at", $"{npc.transform.position.x:F2},{npc.transform.position.y:F2},{npc.transform.position.z:F2}",
             "state", driver.CurrentStateName);
+
+        StartCoroutine(AlignSeatHeight());
     }
 
+    /// <summary>
+    /// 用髋骨实测把座位高度对齐到床面：不再靠"髋高 0.2 还是 0.25"这种常数猜。
+    /// 坐下后等 SitLoop 生效，读 Hips 世界 Y，把根节点整体上移/下移到 床面 + hipsSitOffset。
+    /// </summary>
+    IEnumerator AlignSeatHeight()
+    {
+        var deadline = Time.time + 2.5f;
+        while (driver != null && driver.CurrentStateName != "SitLoop" && Time.time < deadline)
+        {
+            yield return null;
+        }
+
+        yield return null;
+
+        var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
+        var hips = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Hips) : null;
+        if (hips == null)
+        {
+            GameLog.Event("lap_seat_align", "result", "no_hips");
+            yield break;
+        }
+
+        var target = _surfaceY + hipsSitOffset;
+        var delta = target - hips.position.y;
+        npc.transform.position += Vector3.up * delta;
+        _seat = npc.transform.position;
+
+        GameLog.Event(
+            "lap_seat_align",
+            "hipsY", GameLog.F(hips.position.y),
+            "target", GameLog.F(target),
+            "delta", GameLog.F(delta),
+            "seatY", GameLog.F(npc.transform.position.y),
+            "state", driver != null ? driver.CurrentStateName : "-");
+    }
     void EnterLap()
     {
         if (cameraTransform == null || player == null)
@@ -430,7 +471,12 @@ public class LapPillowController : MonoBehaviour
         var z = headZ - seatInsetFromHead;
         z = Mathf.Clamp(z, bed.min.z + 0.1f, bed.max.z - 0.1f);
 
-        seat = new Vector3(bed.center.x, surfaceY + 0.02f, z);
+        // 根节点约定是"地面 + groundOffset"（胶囊中心），不是脚底：
+        // 站立时 anchor.y + 1.0 才是根节点高度。先按"床面当地面"给初值，
+        // 真正的贴合由 BeginSit 之后的 AlignSeatHeight() 用髋骨实测校准。
+        var rootOffset = npc != null ? npc.groundOffset : 1f;
+        _surfaceY = surfaceY;
+        seat = new Vector3(bed.center.x, surfaceY + rootOffset, z);
         return true;
     }
 
