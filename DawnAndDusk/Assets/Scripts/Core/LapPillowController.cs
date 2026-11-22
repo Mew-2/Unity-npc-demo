@@ -25,7 +25,7 @@ public class LapPillowController : MonoBehaviour
 
     [Header("触发")]
     [Tooltip("玩家离她多近时自动进入膝枕视角（米）")]
-    public float enterRadius = 1.1f;
+    public float enterRadius = 1.6f;
 
     [Header("座位（相对床）")]
     [Tooltip("从床头往床尾退多少米坐下")]
@@ -552,6 +552,7 @@ public class LapPillowController : MonoBehaviour
             "camToHead", GameLog.F(toHead.magnitude),
             "pitch", GameLog.F(pitch),
             "headViewport", ViewportOf(headPos),
+            "faceDot", GameLog.F(Vector3.Dot(FacingDirection(), (camPos - headPos).normalized)),
             "player", $"{player.transform.position.x:F2},{player.transform.position.z:F2}",
             "dist", GameLog.F(Flat(player.transform.position, npc.transform.position)));
     }
