@@ -31,8 +31,11 @@ public class LapPillowController : MonoBehaviour
     [Tooltip("从床头往床尾退多少米坐下")]
     public float seatInsetFromHead = 0.55f;
 
-    [Tooltip("模型正面相对根节点 forward 的偏航（VRM 常见 180：模型朝 -Z，根节点 forward 是 +Z）")]
-    public float modelYawOffset;   // 实测这台 VRM 是 0（正面 = +Z）；F5 可现场翻转对照
+    // 故意不序列化：这个字段之前在场景里存了 180，之后把代码默认值改成 0 也不生效，
+    // 表现就是"改完代码，第一次坐下反而更歪"。一次性校准参数写死在代码里最稳。
+    // 实测这台 VRM 的正面就是 +Z（modelYawOffset = 0 时面朝窗户）；F5 可现场翻转对照。
+    [System.NonSerialized]
+    public float modelYawOffset;
 
     [Tooltip("诊断用：坐下时隐藏裙子/连衣裙网格，确认鼓包是不是裙子本身")]
     public bool hideSkirtWhileSeated;
@@ -389,6 +392,7 @@ public class LapPillowController : MonoBehaviour
             "yaw", GameLog.F(npc.transform.eulerAngles.y),
             "manual", useManualSeat ? "1" : "0",
             "headFwd", HeadForward(),
+            "yawOffset", GameLog.F(modelYawOffset),
             "state", driver.CurrentStateName);
 
         if (!useManualSeat)
