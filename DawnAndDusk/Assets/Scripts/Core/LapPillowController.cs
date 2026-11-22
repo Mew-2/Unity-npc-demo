@@ -29,21 +29,27 @@ public class LapPillowController : MonoBehaviour
     [Tooltip("从床头往床尾退多少米坐下")]
     public float seatInsetFromHead = 0.55f;
 
+    [Tooltip("勾上则用下面的手写座位（Play 里直接拖 Npc 到满意位置，抄 Inspector 的坐标进来）")]
+    public bool useManualSeat;
+
+    [Tooltip("手写座位（世界坐标，根节点位置）")]
+    public Vector3 manualSeat = new Vector3(3.42f, 0.85f, 1.95f);
+
     [Tooltip("坐好后髋骨应落在床面上方多少米（自校准的目标值）")]
     public float hipsSitOffset = 0.06f;
 
     [Tooltip("她的膝上点：沿她面朝方向往前多少米")]
-    public float lapForward = 0.28f;
+    public float lapForward = 0.62f;
 
     [Tooltip("她的膝上点：相对她脚下多高")]
-    public float lapHeight = 0.06f;
+    public float lapHeight = 0.04f;
 
     [Tooltip("相机在膝上点上方多少米")]
-    public float cameraLift = 0.05f;
+    public float cameraLift = 0.06f;
 
     [Header("构图（非对称）")]
     [Tooltip("视线向右偏多少度：正值 = 画面右转 → 她的人偏到画面左侧，另一边是天花板")]
-    public float viewYawOffset = 32f;
+    public float viewYawOffset = 26f;
 
     [Tooltip("视线再抬高多少度：正值 = 更仰，天花板占更多画面")]
     public float viewPitchOffset = 6f;
@@ -301,7 +307,10 @@ public class LapPillowController : MonoBehaviour
             "at", $"{npc.transform.position.x:F2},{npc.transform.position.y:F2},{npc.transform.position.z:F2}",
             "state", driver.CurrentStateName);
 
-        StartCoroutine(AlignSeatHeight());
+        if (!useManualSeat)
+        {
+            StartCoroutine(AlignSeatHeight());
+        }
     }
 
     /// <summary>
@@ -527,6 +536,13 @@ public class LapPillowController : MonoBehaviour
     bool TryComputeSeat(out Vector3 seat)
     {
         seat = default;
+
+        if (useManualSeat)
+        {
+            _surfaceY = manualSeat.y - 0.75f;   // 仅用于日志，手动模式不走校准
+            seat = manualSeat;
+            return true;
+        }
 
         var headboard = (Bounds?)null;
         var mattress = (Bounds?)null;
