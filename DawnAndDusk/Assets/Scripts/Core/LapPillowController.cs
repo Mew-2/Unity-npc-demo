@@ -75,6 +75,7 @@ public class LapPillowController : MonoBehaviour
     bool _hasFloorSpot;
     Vector3 _lapPoint;
     Coroutine _transition;
+    Coroutine _returnRoutine;
 
     public bool IsActive => _state != State.Idle;
 
@@ -133,9 +134,17 @@ public class LapPillowController : MonoBehaviour
     /// <summary>「想要膝枕」：算座位、让她走过去、坐下等你。</summary>
     public void Prepare()
     {
+        if (_returnRoutine != null)
+        {
+            // 上一次起身的"回地板"还在排队，必须取消：否则它会在这次坐下之后把人拽回地板
+            StopCoroutine(_returnRoutine);
+            _returnRoutine = null;
+            GameLog.Event("lap_prepare", "cancelled", "pending_return");
+        }
+
         if (_state != State.Idle)
         {
-            GameLog.Event("lap_prepare", "result", "already");
+            GameLog.Event("lap_prepare", "result", "already", "state", _state.ToString());
             return;
         }
 
@@ -211,12 +220,20 @@ public class LapPillowController : MonoBehaviour
         GameLog.Event("lap_exit", "from", was.ToString());
 
         // 站起来之后把她放回床边地板（否则会在床沿上站着），再恢复 root motion
-        StartCoroutine(ReturnToFloor());
+        _returnRoutine = StartCoroutine(ReturnToFloor());
     }
 
     IEnumerator ReturnToFloor()
     {
         yield return new WaitForSeconds(1.0f);
+        _returnRoutine = null;
+
+        if (_state != State.Idle)
+        {
+            // 已经又开始新的膝枕了，别再把人拽回地板
+            GameLog.Event("lap_return", "skipped", _state.ToString());
+            yield break;
+        }
 
         if (_hasFloorSpot && npc != null)
         {
@@ -259,6 +276,13 @@ public class LapPillowController : MonoBehaviour
 
     void Update()
     {
+        if (_state != State.Idle && Input.GetKeyDown(KeyCode.Escape))
+        {
+            GameLog.Event("lap_exit", "by", "escape");
+            Exit();
+            return;
+        }
+
         switch (_state)
         {
             case State.Walking:
@@ -305,6 +329,8 @@ public class LapPillowController : MonoBehaviour
         GameLog.Event(
             "lap_seated",
             "at", $"{npc.transform.position.x:F2},{npc.transform.position.y:F2},{npc.transform.position.z:F2}",
+            "yaw", GameLog.F(npc.transform.eulerAngles.y),
+            "manual", useManualSeat ? "1" : "0",
             "state", driver.CurrentStateName);
 
         if (!useManualSeat)
