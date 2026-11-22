@@ -31,6 +31,9 @@ public class LapPillowController : MonoBehaviour
     [Tooltip("从床头往床尾退多少米坐下")]
     public float seatInsetFromHead = 0.55f;
 
+    [Tooltip("模型正面相对根节点 forward 的偏航（VRM 常见 180：模型朝 -Z，根节点 forward 是 +Z）")]
+    public float modelYawOffset = 180f;
+
     [Tooltip("诊断用：坐下时隐藏裙子/连衣裙网格，确认鼓包是不是裙子本身")]
     public bool hideSkirtWhileSeated;
 
@@ -353,8 +356,9 @@ public class LapPillowController : MonoBehaviour
 
         // 贴到座位上（先让 root motion 关掉，坐着时不该被动画带着漂）
         npc.transform.position = _seat;
-        // 面朝窗户（+Z）：她背对床尾、腿朝窗户方向伸，玩家枕在她腿上时正好背对窗光
-        npc.transform.rotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
+        // 面朝窗户（+Z）。注意模型正面不一定等于根节点 forward：
+        // 日志里 root yaw=0 时画面仍是她正脸，说明模型朝 -Z —— 所以根节点要再多转 modelYawOffset。
+        npc.transform.rotation = Quaternion.Euler(0f, -modelYawOffset, 0f);
 
         if (relay != null)
         {
@@ -623,14 +627,20 @@ public class LapPillowController : MonoBehaviour
         return npc != null ? npc.transform.position + Vector3.up * 0.75f : Vector3.zero;
     }
 
+    /// <summary>她真正面向的方向（模型正面），不是根节点 forward。</summary>
+    Vector3 FacingDirection()
+    {
+        var f = npc.transform.forward;
+        f = Quaternion.Euler(0f, modelYawOffset, 0f) * f;
+        f.y = 0f;
+        return f.sqrMagnitude > 0.0001f ? f.normalized : Vector3.forward;
+    }
+
     Vector3 ComputeLapPoint()
     {
-        var forward = npc.transform.forward;
-        forward.y = 0f;
-
         // 关键：以髋骨为基准，不是根节点。坐姿下根节点比髋骨高 ~0.4m，
         // 用根节点会把"大腿点"算到头顶上去（实测相机因此跑到她头上方俯视）。
-        return HipsPosition() + forward.normalized * lapForward + Vector3.up * lapHeight;
+        return HipsPosition() + FacingDirection() * lapForward + Vector3.up * lapHeight;
     }
 
     Vector3 ComputeLapCameraPose()
