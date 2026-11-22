@@ -316,6 +316,18 @@ public class LapPillowController : MonoBehaviour
 
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.F5))
+        {
+            // 调试：现场翻转模型朝向，配合日志找出正确的 modelYawOffset
+            modelYawOffset = Mathf.Repeat(modelYawOffset + 180f, 360f);
+            if (_state != State.Idle && npc != null)
+            {
+                npc.transform.rotation = Quaternion.Euler(0f, -modelYawOffset, 0f);
+            }
+
+            GameLog.Event("lap_flip", "modelYawOffset", GameLog.F(modelYawOffset), "headFwd", HeadForward());
+        }
+
         if (_state != State.Idle && Input.GetKeyDown(KeyCode.Escape))
         {
             GameLog.Event("lap_exit", "by", "escape");
@@ -376,6 +388,7 @@ public class LapPillowController : MonoBehaviour
             "at", $"{npc.transform.position.x:F2},{npc.transform.position.y:F2},{npc.transform.position.z:F2}",
             "yaw", GameLog.F(npc.transform.eulerAngles.y),
             "manual", useManualSeat ? "1" : "0",
+            "headFwd", HeadForward(),
             "state", driver.CurrentStateName);
 
         if (!useManualSeat)
@@ -627,6 +640,24 @@ public class LapPillowController : MonoBehaviour
         return npc != null ? npc.transform.position + Vector3.up * 0.75f : Vector3.zero;
     }
 
+    /// <summary>头骨的世界朝向（x,z）。用来判定"她脸朝哪"，不受根节点/动画旋转的干扰。</summary>
+    string HeadForward()
+    {
+        var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
+        if (animator == null || !animator.isHuman)
+        {
+            return "-";
+        }
+
+        var head = animator.GetBoneTransform(HumanBodyBones.Head);
+        if (head == null)
+        {
+            return "-";
+        }
+
+        var f = head.forward;
+        return $"{f.x:F2},{f.z:F2}";
+    }
     /// <summary>她真正面向的方向（模型正面），不是根节点 forward。</summary>
     Vector3 FacingDirection()
     {
