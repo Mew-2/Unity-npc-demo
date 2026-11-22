@@ -32,7 +32,7 @@ public class LapPillowController : MonoBehaviour
     public float seatInsetFromHead = 0.55f;
 
     [Tooltip("模型正面相对根节点 forward 的偏航（VRM 常见 180：模型朝 -Z，根节点 forward 是 +Z）")]
-    public float modelYawOffset = 180f;
+    public float modelYawOffset;   // 实测这台 VRM 是 0（正面 = +Z）；F5 可现场翻转对照
 
     [Tooltip("诊断用：坐下时隐藏裙子/连衣裙网格，确认鼓包是不是裙子本身")]
     public bool hideSkirtWhileSeated;
@@ -369,7 +369,7 @@ public class LapPillowController : MonoBehaviour
         // 贴到座位上（先让 root motion 关掉，坐着时不该被动画带着漂）
         npc.transform.position = _seat;
         // 面朝窗户（+Z）。注意模型正面不一定等于根节点 forward：
-        // 日志里 root yaw=0 时画面仍是她正脸，说明模型朝 -Z —— 所以根节点要再多转 modelYawOffset。
+        // 实测：modelYawOffset = 0 时她背对镜头、面朝窗户（F5 翻转验证过）。
         npc.transform.rotation = Quaternion.Euler(0f, -modelYawOffset, 0f);
 
         if (relay != null)
