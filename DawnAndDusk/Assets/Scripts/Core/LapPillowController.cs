@@ -27,19 +27,19 @@ public class LapPillowController : MonoBehaviour
 
     [Header("座位（相对床）")]
     [Tooltip("从床头往床尾退多少米坐下")]
-    public float seatInsetFromHead = 0.45f;
+    public float seatInsetFromHead = 0.55f;
 
     [Tooltip("坐好后髋骨应落在床面上方多少米（自校准的目标值）")]
     public float hipsSitOffset = 0.06f;
 
     [Tooltip("她的膝上点：沿她面朝方向往前多少米")]
-    public float lapForward = 0.75f;
+    public float lapForward = 0.45f;
 
     [Tooltip("她的膝上点：相对她脚下多高")]
-    public float lapHeight = 0.25f;
+    public float lapHeight = 0.16f;
 
     [Tooltip("相机在膝上点上方多少米")]
-    public float cameraLift = 0.08f;
+    public float cameraLift = 0.05f;
 
     [Tooltip("进入/退出镜头过渡时长（秒）")]
     public float transitionSeconds = 1.2f;
@@ -57,6 +57,9 @@ public class LapPillowController : MonoBehaviour
     Quaternion _savedCamLocalRot;
     Vector3 _seat;
     float _surfaceY;
+    float _hipOffset = -0.09f;   // 髋骨相对根节点的偏移：先用实测过的估值（上次 0.76-0.85），坐下后再精确校一次并更新
+    Vector3 _floorSpot;             // 传送上床边之前她站的位置（起身后回到这里）
+    bool _hasFloorSpot;
     Vector3 _lapPoint;
     Coroutine _transition;
 
@@ -190,14 +193,31 @@ public class LapPillowController : MonoBehaviour
             driver.SetSitting(false);
         }
 
+        var was = _state;
+        _state = State.Idle;
+        GameLog.Event("lap_exit", "from", was.ToString());
+
+        // 站起来之后把她放回床边地板（否则会在床沿上站着），再恢复 root motion
+        StartCoroutine(ReturnToFloor());
+    }
+
+    IEnumerator ReturnToFloor()
+    {
+        yield return new WaitForSeconds(1.0f);
+
+        if (_hasFloorSpot && npc != null)
+        {
+            npc.transform.position = _floorSpot;
+            GameLog.Event(
+                "lap_return",
+                "at", $"{_floorSpot.x:F2},{_floorSpot.y:F2},{_floorSpot.z:F2}",
+                "state", driver != null ? driver.CurrentStateName : "-");
+        }
+
         if (relay != null)
         {
             relay.relay = true;
         }
-
-        var was = _state;
-        _state = State.Idle;
-        GameLog.Event("lap_exit", "from", was.ToString());
     }
 
     /// <summary>唱一句（改自歌词占位）；后续接 AI 音色时替换成音频播放。</summary>
@@ -253,7 +273,11 @@ public class LapPillowController : MonoBehaviour
 
     void BeginSit()
     {
-        // 贴到座位上并朝向床尾（先让 root motion 关掉，坐着时不该被动画带着漂）
+        // 记住传送前她站的地板位置，起身后回到这里（不然会站在床沿上）
+        _floorSpot = npc.transform.position;
+        _hasFloorSpot = true;
+
+        // 贴到座位上（先让 root motion 关掉，坐着时不该被动画带着漂）
         npc.transform.position = _seat;
         // 面朝窗户（+Z）：她背对床尾、腿朝窗户方向伸，玩家枕在她腿上时正好背对窗光
         npc.transform.rotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
@@ -279,6 +303,12 @@ public class LapPillowController : MonoBehaviour
     /// </summary>
     IEnumerator AlignSeatHeight()
     {
+        // 第一遍：刚坐下就按估值对一次，避免"坐在半空再掉下来"
+        yield return null;
+        yield return null;
+        ApplySeatHeight("quick");
+
+        // 第二遍：等 SitLoop 稳定后精确校一次（换片段时也自动适配），并把髋高缓存下来
         var deadline = Time.time + 8f;
         while (driver != null && driver.CurrentStateName != "SitLoop" && Time.time < deadline)
         {
@@ -286,26 +316,39 @@ public class LapPillowController : MonoBehaviour
         }
 
         yield return null;
+        yield return null;
+        ApplySeatHeight("final");
+    }
 
+    /// <summary>量髋骨、把根节点对到"床面 + hipsSitOffset"，并缓存髋高供下次直接摆放。</summary>
+    void ApplySeatHeight(string phase)
+    {
         var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
         var hips = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Hips) : null;
         if (hips == null)
         {
-            GameLog.Event("lap_seat_align", "result", "no_hips");
-            yield break;
+            GameLog.Event("lap_seat_align", "phase", phase, "result", "no_hips");
+            return;
         }
 
         var target = _surfaceY + hipsSitOffset;
         var delta = target - hips.position.y;
-        npc.transform.position += Vector3.up * delta;
+        if (Mathf.Abs(delta) > 0.005f)
+        {
+            npc.transform.position += Vector3.up * delta;
+        }
+
         _seat = npc.transform.position;
+        _hipOffset = hips.position.y - npc.transform.position.y;
 
         GameLog.Event(
             "lap_seat_align",
+            "phase", phase,
             "hipsY", GameLog.F(hips.position.y),
             "target", GameLog.F(target),
             "delta", GameLog.F(delta),
             "seatY", GameLog.F(npc.transform.position.y),
+            "hipOffset", GameLog.F(_hipOffset),
             "state", driver != null ? driver.CurrentStateName : "-");
     }
     void EnterLap()
@@ -422,7 +465,8 @@ public class LapPillowController : MonoBehaviour
             var head = animator.GetBoneTransform(HumanBodyBones.Head);
             if (head != null)
             {
-                return head.position + Vector3.up * 0.02f;
+                // 瞄脸而不是头顶：从大腿处仰视时，头顶会让画面全是下巴/额头
+                return head.position - Vector3.up * 0.10f;
             }
         }
 
@@ -484,9 +528,20 @@ public class LapPillowController : MonoBehaviour
         // 根节点约定是"地面 + groundOffset"（胶囊中心），不是脚底：
         // 站立时 anchor.y + 1.0 才是根节点高度。先按"床面当地面"给初值，
         // 真正的贴合由 BeginSit 之后的 AlignSeatHeight() 用髋骨实测校准。
-        var rootOffset = npc != null ? npc.groundOffset : 1f;
         _surfaceY = surfaceY;
-        seat = new Vector3(bed.center.x, surfaceY + rootOffset, z);
+        float seatY;
+        if (!float.IsNaN(_hipOffset))
+        {
+            // 已知坐姿髋高：直接把根节点放到"髋骨 = 床面 + hipsSitOffset"的高度，不再落地后才补
+            seatY = surfaceY + hipsSitOffset - _hipOffset;
+        }
+        else
+        {
+            var rootOffset = npc != null ? npc.groundOffset : 1f;
+            seatY = surfaceY + rootOffset;
+        }
+
+        seat = new Vector3(bed.center.x, seatY, z);
         return true;
     }
 

@@ -49,9 +49,8 @@ public class NpcLookAtIK : MonoBehaviour
     {
         target = lookTarget;
         active = on;
-        if (!on && _animator != null)
-        {
-            _animator.SetLookAtWeight(0f);
-        }
+        // 注意：不要在 OnAnimatorIK 之外调用 SetLookAtWeight/SetLookAtPosition，
+        // Unity 会报 "Setting and getting ... should only be done in OnAnimatorIK"。
+        // 关闭时 OnAnimatorIK 里会自己把权重归零。
     }
 }
