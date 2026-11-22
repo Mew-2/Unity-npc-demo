@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
+using UniVRM10;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -76,6 +78,10 @@ public class LapPillowController : MonoBehaviour
     Vector3 _lapPoint;
     Coroutine _transition;
     Coroutine _returnRoutine;
+
+    Vrm10Instance _vrm;
+    readonly List<VRM10SpringBoneCollider> _legColliders = new List<VRM10SpringBoneCollider>();
+    readonly List<bool> _legColliderStates = new List<bool>();
 
     public bool IsActive => _state != State.Idle;
 
@@ -244,6 +250,8 @@ public class LapPillowController : MonoBehaviour
                 "state", driver != null ? driver.CurrentStateName : "-");
         }
 
+        SetLegSpringColliders(true);
+
         if (relay != null)
         {
             relay.relay = true;
@@ -324,6 +332,8 @@ public class LapPillowController : MonoBehaviour
             relay.relay = false;
         }
 
+        SetLegSpringColliders(false);
+
         driver.SetSitting(true);
         _state = State.Seated;
         GameLog.Event(
@@ -362,6 +372,62 @@ public class LapPillowController : MonoBehaviour
         ApplySeatHeight("final");
     }
 
+    /// <summary>
+    /// 坐下时把"腿上的 SpringBone 碰撞体"关掉并重建弹簧缓冲。
+    /// 裙子是 spring bone 链，腿折叠后这些碰撞体跑到裙子内部，会把布往外顶——
+    /// 表现为坐下 1~2 秒后裙子鼓成一个帐篷。关掉腿部碰撞体，裙子只受重力自然垂落。
+    /// </summary>
+    void SetLegSpringColliders(bool on)
+    {
+        if (_vrm == null)
+        {
+            _vrm = npc != null ? npc.GetComponentInChildren<Vrm10Instance>() : null;
+        }
+
+        if (_vrm == null)
+        {
+            return;
+        }
+
+        if (_legColliders.Count == 0)
+        {
+            foreach (var collider in npc.GetComponentsInChildren<VRM10SpringBoneCollider>(true))
+            {
+                var n = collider.gameObject.name.ToLowerInvariant();
+                if (n.Contains("leg") || n.Contains("thigh") || n.Contains("shin")
+                    || n.Contains("knee") || n.Contains("foot") || n.Contains("toe") || n.Contains("hips"))
+                {
+                    _legColliders.Add(collider);
+                    _legColliderStates.Add(collider.enabled);
+                }
+            }
+        }
+
+        if (_legColliders.Count == 0)
+        {
+            GameLog.Event("lap_spring", "result", "no_leg_colliders");
+            return;
+        }
+
+        for (var i = 0; i < _legColliders.Count; i++)
+        {
+            if (_legColliders[i] != null)
+            {
+                _legColliders[i].enabled = on ? _legColliderStates[i] : false;
+            }
+        }
+
+        try
+        {
+            _vrm.Runtime?.SpringBone?.ReconstructSpringBone();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[LapPillow] 重建弹簧失败：{e.Message}");
+        }
+
+        GameLog.Event("lap_spring", "colliders", _legColliders.Count.ToString(), "enabled", on ? "1" : "0");
+    }
     /// <summary>量髋骨、把根节点对到"床面 + hipsSitOffset"，并缓存髋高供下次直接摆放。</summary>
     void ApplySeatHeight(string phase)
     {
