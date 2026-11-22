@@ -33,13 +33,20 @@ public class LapPillowController : MonoBehaviour
     public float hipsSitOffset = 0.06f;
 
     [Tooltip("她的膝上点：沿她面朝方向往前多少米")]
-    public float lapForward = 0.45f;
+    public float lapForward = 0.28f;
 
     [Tooltip("她的膝上点：相对她脚下多高")]
-    public float lapHeight = 0.16f;
+    public float lapHeight = 0.06f;
 
     [Tooltip("相机在膝上点上方多少米")]
     public float cameraLift = 0.05f;
+
+    [Header("构图（非对称）")]
+    [Tooltip("视线向右偏多少度：正值 = 画面右转 → 她的人偏到画面左侧，另一边是天花板")]
+    public float viewYawOffset = 32f;
+
+    [Tooltip("视线再抬高多少度：正值 = 更仰，天花板占更多画面")]
+    public float viewPitchOffset = 6f;
 
     [Tooltip("进入/退出镜头过渡时长（秒）")]
     public float transitionSeconds = 1.2f;
@@ -395,6 +402,7 @@ public class LapPillowController : MonoBehaviour
             "head", $"{headPos.x:F2},{headPos.y:F2},{headPos.z:F2}",
             "camToHead", GameLog.F(toHead.magnitude),
             "pitch", GameLog.F(pitch),
+            "headViewport", ViewportOf(headPos),
             "player", $"{player.transform.position.x:F2},{player.transform.position.z:F2}",
             "dist", GameLog.F(Flat(player.transform.position, npc.transform.position)));
     }
@@ -415,7 +423,7 @@ public class LapPillowController : MonoBehaviour
             var lookTarget = HeadPosition() - cameraTransform.position;
             if (lookTarget.sqrMagnitude > 0.0001f)
             {
-                cameraTransform.rotation = Quaternion.Slerp(fromRot, Quaternion.LookRotation(lookTarget, Vector3.up), smooth);
+                cameraTransform.rotation = Quaternion.Slerp(fromRot, LapCameraRotation(cameraTransform.position), smooth);
             }
 
             yield return null;
@@ -433,22 +441,64 @@ public class LapPillowController : MonoBehaviour
 
         var targetPos = ComputeLapCameraPose();
         cameraTransform.position = Vector3.Lerp(cameraTransform.position, targetPos, Time.deltaTime * 6f);
+        cameraTransform.rotation = Quaternion.Slerp(
+            cameraTransform.rotation,
+            LapCameraRotation(cameraTransform.position),
+            Time.deltaTime * 6f);
+    }
 
-        var toHead = HeadPosition() - cameraTransform.position;
-        if (toHead.sqrMagnitude > 0.0001f)
+    /// <summary>
+    /// 膝枕构图：不是把她摆正中，而是"歪在一边"。
+    /// 真实姿势里后脑枕在一侧大腿上，抬头看时她的人在斜上方、另一半画面是天花板。
+    /// 这里在世界朝向下叠加 yaw/pitch 偏移：yaw 正 = 视线右转 → 她的脸落到画面左侧。
+    /// </summary>
+    Quaternion LapCameraRotation(Vector3 camPos)
+    {
+        var toHead = HeadPosition() - camPos;
+        if (toHead.sqrMagnitude < 0.0001f)
         {
-            cameraTransform.rotation = Quaternion.Slerp(
-                cameraTransform.rotation,
-                Quaternion.LookRotation(toHead, Vector3.up),
-                Time.deltaTime * 6f);
+            return cameraTransform != null ? cameraTransform.rotation : Quaternion.identity;
         }
+
+        var baseRot = Quaternion.LookRotation(toHead, Vector3.up);
+        return baseRot * Quaternion.Euler(-viewPitchOffset, viewYawOffset, 0f);
+    }
+
+    /// <summary>头部在画面里的归一化坐标（0~1）。x<0.5 表示在左半边，y<0.5 表示偏下。</summary>
+    string ViewportOf(Vector3 world)
+    {
+        var cam = cameraTransform != null ? cameraTransform.GetComponent<Camera>() : null;
+        if (cam == null)
+        {
+            return "-";
+        }
+
+        var v = cam.WorldToViewportPoint(world);
+        return $"{v.x:F2},{v.y:F2},{(v.z > 0f ? "front" : "behind")}";
+    }
+    Vector3 HipsPosition()
+    {
+        var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
+        if (animator != null && animator.isHuman)
+        {
+            var hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+            if (hips != null)
+            {
+                return hips.position;
+            }
+        }
+
+        return npc != null ? npc.transform.position + Vector3.up * 0.75f : Vector3.zero;
     }
 
     Vector3 ComputeLapPoint()
     {
         var forward = npc.transform.forward;
         forward.y = 0f;
-        return npc.transform.position + forward.normalized * lapForward + Vector3.up * lapHeight;
+
+        // 关键：以髋骨为基准，不是根节点。坐姿下根节点比髋骨高 ~0.4m，
+        // 用根节点会把"大腿点"算到头顶上去（实测相机因此跑到她头上方俯视）。
+        return HipsPosition() + forward.normalized * lapForward + Vector3.up * lapHeight;
     }
 
     Vector3 ComputeLapCameraPose()
