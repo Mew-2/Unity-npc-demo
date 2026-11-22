@@ -25,7 +25,7 @@ public class LapPillowController : MonoBehaviour
 
     [Header("触发")]
     [Tooltip("玩家离她多近时自动进入膝枕视角（米）")]
-    public float enterRadius = 1.6f;
+    public float enterRadius = 1.1f;   // 玩家走到 1.1m 内才切 POV（保持"走到跟前"的设计）
 
     [Header("座位（相对床）")]
     [Tooltip("从床头往床尾退多少米坐下")]
