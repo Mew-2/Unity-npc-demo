@@ -33,13 +33,13 @@ public class LapPillowController : MonoBehaviour
     public float hipsSitOffset = 0.06f;
 
     [Tooltip("她的膝上点：沿她面朝方向往前多少米")]
-    public float lapForward = 0.42f;
+    public float lapForward = 0.75f;
 
     [Tooltip("她的膝上点：相对她脚下多高")]
-    public float lapHeight = 0.20f;
+    public float lapHeight = 0.25f;
 
     [Tooltip("相机在膝上点上方多少米")]
-    public float cameraLift = 0.12f;
+    public float cameraLift = 0.08f;
 
     [Tooltip("进入/退出镜头过渡时长（秒）")]
     public float transitionSeconds = 1.2f;
@@ -255,8 +255,8 @@ public class LapPillowController : MonoBehaviour
     {
         // 贴到座位上并朝向床尾（先让 root motion 关掉，坐着时不该被动画带着漂）
         npc.transform.position = _seat;
-        var forward = Quaternion.LookRotation(Vector3.back, Vector3.up); // 面朝 -Z（床尾）
-        npc.transform.rotation = forward;
+        // 面朝窗户（+Z）：她背对床尾、腿朝窗户方向伸，玩家枕在她腿上时正好背对窗光
+        npc.transform.rotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
 
         if (relay != null)
         {
@@ -279,7 +279,7 @@ public class LapPillowController : MonoBehaviour
     /// </summary>
     IEnumerator AlignSeatHeight()
     {
-        var deadline = Time.time + 2.5f;
+        var deadline = Time.time + 8f;
         while (driver != null && driver.CurrentStateName != "SitLoop" && Time.time < deadline)
         {
             yield return null;
@@ -340,9 +340,18 @@ public class LapPillowController : MonoBehaviour
             lookAt.SetTarget(cameraTransform, true);
         }
 
+        var camPos = ComputeLapCameraPose();
+        var headPos = HeadPosition();
+        var toHead = headPos - camPos;
+        var pitch = Mathf.Atan2(toHead.y, new Vector2(toHead.x, toHead.z).magnitude) * Mathf.Rad2Deg;
+
         GameLog.Event(
             "lap_enter",
             "lap", $"{_lapPoint.x:F2},{_lapPoint.y:F2},{_lapPoint.z:F2}",
+            "cam", $"{camPos.x:F2},{camPos.y:F2},{camPos.z:F2}",
+            "head", $"{headPos.x:F2},{headPos.y:F2},{headPos.z:F2}",
+            "camToHead", GameLog.F(toHead.magnitude),
+            "pitch", GameLog.F(pitch),
             "player", $"{player.transform.position.x:F2},{player.transform.position.z:F2}",
             "dist", GameLog.F(Flat(player.transform.position, npc.transform.position)));
     }
@@ -413,7 +422,7 @@ public class LapPillowController : MonoBehaviour
             var head = animator.GetBoneTransform(HumanBodyBones.Head);
             if (head != null)
             {
-                return head.position + Vector3.up * 0.05f;
+                return head.position + Vector3.up * 0.02f;
             }
         }
 
@@ -464,12 +473,13 @@ public class LapPillowController : MonoBehaviour
             return false;
         }
 
+        // 以床垫为准：床头的包围盒（Base）经常比床垫长，直接用它会把人放到床沿外面（实测 seat z=2.49，床垫只到 2.06）
         var bed = mattress ?? headboard.Value;
-        var headZ = headboard.HasValue ? headboard.Value.max.z : bed.max.z;
+        var headZ = mattress.HasValue ? mattress.Value.max.z : bed.max.z;
         var surfaceY = mattress.HasValue ? mattress.Value.max.y : bed.max.y;
 
         var z = headZ - seatInsetFromHead;
-        z = Mathf.Clamp(z, bed.min.z + 0.1f, bed.max.z - 0.1f);
+        z = Mathf.Clamp(z, bed.min.z + 0.45f, bed.max.z - 0.45f);
 
         // 根节点约定是"地面 + groundOffset"（胶囊中心），不是脚底：
         // 站立时 anchor.y + 1.0 才是根节点高度。先按"床面当地面"给初值，
