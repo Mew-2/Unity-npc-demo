@@ -71,6 +71,12 @@ public class CommandExecutor : MonoBehaviour
                     break;
 
                 case "look_at":
+                    if (lap != null && lap.IsActive)
+                    {
+                        GameLog.Event("cmd_skip", "op", "look_at", "reason", "lap_active");
+                        break;
+                    }
+
                     var target = string.IsNullOrEmpty(command.target) ? "player" : command.target;
                     if (target != "player" && !graph.Has(target))
                     {

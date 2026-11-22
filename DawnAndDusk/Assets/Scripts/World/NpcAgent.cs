@@ -82,6 +82,7 @@ public class NpcAgent : MonoBehaviour
     public bool IsBraking { get; private set; }
 
     Coroutine _moveRoutine;
+    Coroutine _turnRoutine;
     NpcAnimationDriver _animationDriver;
     float _currentSpeed;   // 当前实际速度 m/s
     float _elapsed;        // 本次移动已经走了多久
@@ -376,6 +377,7 @@ public class NpcAgent : MonoBehaviour
     /// <summary>直接按世界折线开始移动（"过来"这类动态目的地用）。</summary>
     void StartMove(List<Vector3> points, string label, string source = "grid")
     {
+        StopTurning();
         if (_animationDriver == null)
         {
             _animationDriver = GetComponentInChildren<NpcAnimationDriver>();
@@ -501,6 +503,7 @@ public class NpcAgent : MonoBehaviour
             "route", string.Join(";", points.ConvertAll(p => $"{p.x:F2},{p.z:F2}")));
 
         // 新指令覆盖旧指令：停掉上一次移动。
+        StopTurning();
         if (_moveRoutine != null)
         {
             StopCoroutine(_moveRoutine);
@@ -539,7 +542,18 @@ public class NpcAgent : MonoBehaviour
     /// <summary>0.5 秒内转向目标（锚点名或 player）。</summary>
     public Coroutine TurnTo(string targetId)
     {
-        return StartCoroutine(TurnRoutine(targetId));
+        StopTurning();
+        _turnRoutine = StartCoroutine(TurnRoutine(targetId));
+        return _turnRoutine;
+    }
+
+    public void StopTurning()
+    {
+        if (_turnRoutine != null)
+        {
+            StopCoroutine(_turnRoutine);
+            _turnRoutine = null;
+        }
     }
 
     IEnumerator TurnRoutine(string targetId)
@@ -555,6 +569,7 @@ public class NpcAgent : MonoBehaviour
             var anchor = graph != null ? graph.Get(targetId) : null;
             if (anchor == null)
             {
+                _turnRoutine = null;
                 yield break;
             }
 
@@ -565,6 +580,7 @@ public class NpcAgent : MonoBehaviour
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f)
         {
+            _turnRoutine = null;
             yield break;
         }
 
@@ -581,6 +597,7 @@ public class NpcAgent : MonoBehaviour
         }
 
         transform.rotation = targetRotation;
+        _turnRoutine = null;
     }
 
     /// <summary>

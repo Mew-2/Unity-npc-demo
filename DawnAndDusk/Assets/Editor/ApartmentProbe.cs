@@ -53,6 +53,24 @@ public static class ApartmentProbe
         sb.AppendLine($"床头柜: {(bedside.HasValue ? $"center={bedside.Value.center}" : "无")}");
         sb.AppendLine($"书桌: {(desk.HasValue ? $"center={desk.Value.center} size={desk.Value.size}" : "无")}");
 
+        sb.AppendLine("\n## 床头柜部件");
+        foreach (var r in all.Where(r => r.name.IndexOf("Bedside", System.StringComparison.OrdinalIgnoreCase) >= 0 && r.transform.position.x > 3f))
+        {
+            sb.AppendLine($"{r.name} pos={r.transform.position} center={r.bounds.center} size={r.bounds.size}");
+        }
+
+        sb.AppendLine("\n## 床部件");
+        foreach (var r in all.Where(r => r.name.IndexOf("Bed_Bedroom", System.StringComparison.OrdinalIgnoreCase) >= 0))
+        {
+            sb.AppendLine($"{r.name} pos={r.transform.position} center={r.bounds.center} size={r.bounds.size}");
+        }
+
+        sb.AppendLine("\n## 床附近灯光");
+        foreach (var light in Object.FindObjectsOfType<Light>().Where(l => Vector3.Distance(l.transform.position, bed?.center ?? Vector3.zero) < 3f))
+        {
+            sb.AppendLine($"{light.name} type={light.type} pos={light.transform.position}");
+        }
+
         // 可站立栅格：按"渲染体包围盒是否覆盖该点"判断占用（这场景有整层碰撞体，物理检测不可用）
         const float x0 = 1.6f, x1 = 5.8f, z0 = -0.2f, z1 = 4.0f, step = 0.2f;
         var occupied = all.Where(r => r.bounds.size.y > 0.12f).Select(r => r.bounds).ToArray();

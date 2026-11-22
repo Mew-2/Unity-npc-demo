@@ -137,6 +137,11 @@ public class CharacterSwitcher : MonoBehaviour
                     lod.ForceLOD(0);
                 }
 
+                foreach (var skinned in visual.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    skinned.updateWhenOffscreen = true;
+                }
+
                 if (controller != null)
                 {
                     var driver = visual.AddComponent<NpcAnimationDriver>();

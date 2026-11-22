@@ -1,6 +1,6 @@
 # 交接：实时可用
 
-> 最后更新：2026-11-16 ｜ 对应 commit：以 `git log -1` 为准
+> 最后更新：2026-11-23 ｜ 对应 commit：以 `git log -1` 为准
 > 下次先做：对话站位（玩家身体朝向 + 视线校验），再验跨房间 NavMesh
 
 ## 0. 当前状态
@@ -15,8 +15,11 @@
   - 玩家不在 NavMesh 上，极端贴墙可能穿身/推人（未加 NavMeshObstacle）
   - 跨房间锚点还没铺；`Pivot` 片段自带位移，`autoPivot=false`
   - `say / commands / 表情 / 摸头` 尚未进 `game.jsonl`
+  - 停止 Play 后先等完全回到 Edit 再关闭 Unity；立即退出可能在 FastSpringBone/脚本域清理时卡在 `CleanupEngine`
 
 ## 1. 必须拷到另一台电脑（不在 GitHub）
+
+最省事的做法：把整个 `DawnAndDusk/Assets/_LocalTest/` 按原相对路径复制到公司机，`.meta` 一起带。VRM、UniVRM 包和代码已在 Git 中，不用另拷；`Library/`、`Temp/`、`Logs/`、`.venv/` 与测试截图不用带。
 
 | 项 | 路径 | 大小 | 必需 |
 |---|---|---|---|
@@ -71,14 +74,14 @@ $env:OFFLINE="1"
 - 不要在 README 写“已购买授权”
 - 不要把 `LLM_API_KEY` 写进仓库
 
-## 4.5 膝枕 v1（2026-11-22 实现，待实机验证）
+## 4.5 膝枕 v1（2026-11-22 实现，自动回归通过）
 
 流程：`想要膝枕` → 她走到床头坐下（`SitStart → SitLoop`）→ 玩家靠近 1.1m → 自动切 POV
 （相机降到膝上仰视 + `NpcLookAtIK` 低头看你）→ `起来` 退出。
 
 - 坐姿三件套：`@KA_Sit_Start` / `@KA_Sit_LookingAround`（循环）/ `@KA_Sit_End`
   —— 包里**没有**裸的 `@KA_Sit`，`LookingAround` 与 Start/End 同在 `Sit/TransitionFromStandingPose/`
-- `LapPillowController`：座位按床的包围盒运行时计算（床头往床尾退 0.62m），不写死坐标
+- `LapPillowController`：座位按床的包围盒运行时计算（实测床长轴为 X，床头往床尾退 0.55m），不写死坐标
 - `NpcLookAtIK`：`OnAnimatorIK` 抬头/低头；controller 层已开 `iKPass`
 - 指令：`set npc lap|sit|stand|sing`、`set player lap|stand`；`move` 会自动退出膝枕
 - 日志：`lap_prepare` / `lap_seated` / `lap_enter` / `lap_exit` / `lyric`
@@ -86,6 +89,15 @@ $env:OFFLINE="1"
 
 **验证步骤**：`Build Kawaii Animator`（重建 controller）→ `Build Apartment Demo`（装配 LapPillow）
 → Play → 说「想要膝枕」→ 走近 → 说「起来」。
+
+**2026-11-22 修复（月谣）**：
+
+- 裙子坐姿：8 根 `DS_skirtFold_*` 的腿部约束从 0.65 降到 0.3，3 根主裙褶骨抬高 3cm，使裙面盖住大腿、不尖顶也不穿腿；保留腿部弹簧碰撞组，起身恢复原值。
+- 二次膝枕朝向：膝枕激活期间跳过 `look_at`，`BeginSit` 同时取消残留转身；快速重入取消回地板时立即恢复弹簧、裙褶约束和 root motion。
+- 头发/面部消失：角色全部 `SkinnedMeshRenderer` 开启 `updateWhenOffscreen`，避免 SpringBone/IK 变形或 POV 过渡时包围盒过时导致误剔除；补拍 0.35/0.70/1.05 秒过渡帧验证。
+- 手臂穿插：原坐姿贴身，未适配鲸鲸胸肩与肩袖体积；坐姿上臂外展 8°，肘部抬高 2cm、前臂前移 2cm、左右各展开 4cm 露出双侧袖口，腕部再补偿 5cm，并将手指方向对齐大腿，起身恢复动画控制。手指弯曲保持原动画。骨骼映射正常，不是渲染器丢网格。
+- POV 空间：实测床长轴为 X，枕头与床头柜在 x≈4.6，床头板到 x=4.83；鲸鲸座位为 x=4.28、z=2.79（床头左侧床沿、面朝床外）。玩家头朝床头、身体朝床尾。头部以两条大腿骨的实际中点为锚点，镜头仅向膝前 0.25m、侧向 0.08m、上方 0.10m 偏移以避开躯干，再向上看脸。
+- 回归：`Tools → DawnAndDusk → Run Lap Pillow Test`，或命令行 `-executeMethod LapPillowPlayTest.Run`。覆盖两轮真实指令、快速重入、座位 yaw=0、腿部碰撞组保持 8 个、裙褶权重 0.65→0.3→0.65、root motion 恢复、大腿头部锚点、真实 POV、全景布局、头发多角度、上臂外展、双侧袖口、手掌方向与腿部间隙；27 项通过。截图输出 `DawnAndDusk/dsh-lap-test/`（本地）。
 
 ## 5. 下一步
 
@@ -102,4 +114,4 @@ $env:OFFLINE="1"
 
 ---
 
-> 维护：Mew-2（人）+ 鲸蕙（DSH-C）/ 鲸若（DSH-P）｜最后核对 2026-11-16
+> 参与者：Mew-2（人）+ 鲸蕙（DSH-C）+ 鲸若（DSH-P）+ 月铃（公司机 Kimi）+ 月谣（自机 Kimi）｜最后核对 2026-11-23

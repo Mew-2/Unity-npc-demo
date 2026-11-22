@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UniVRM10;
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -49,21 +48,21 @@ public class LapPillowController : MonoBehaviour
     [Tooltip("坐好后髋骨应落在床面上方多少米（自校准的目标值）")]
     public float hipsSitOffset = 0.06f;
 
-    [Tooltip("她的膝上点：沿她面朝方向往前多少米")]
-    public float lapForward = 0.62f;
+    [System.NonSerialized]
+    public float lapForward = 0.35f;
 
     [Tooltip("她的膝上点：相对她脚下多高")]
     public float lapHeight = 0.04f;
 
-    [Tooltip("相机在膝上点上方多少米")]
-    public float cameraLift = 0.06f;
+    [System.NonSerialized]
+    public float cameraLift = 0.10f;
 
     [Header("构图（非对称）")]
-    [Tooltip("视线向右偏多少度：正值 = 画面右转 → 她的人偏到画面左侧，另一边是天花板")]
-    public float viewYawOffset = 26f;
+    [System.NonSerialized]
+    public float viewYawOffset = 6f;
 
-    [Tooltip("视线再抬高多少度：正值 = 更仰，天花板占更多画面")]
-    public float viewPitchOffset = 6f;
+    [System.NonSerialized]
+    public float viewPitchOffset = 0f;
 
     [Tooltip("进入/退出镜头过渡时长（秒）")]
     public float transitionSeconds = 1.2f;
@@ -88,9 +87,26 @@ public class LapPillowController : MonoBehaviour
     Coroutine _transition;
     Coroutine _returnRoutine;
 
+    public const float SeatedSkirtFoldWeight = 0.3f;
+    public const float SeatedArmOutwardDegrees = 8f;
+    public const float SeatedElbowLift = 0.02f;
+    public const float SeatedForearmForward = 0.02f;
+    public const float SeatedArmSpread = 0.04f;
+    public const float SeatedHandLift = 0.05f;
+    public const float SeatYaw = 0f;
+    public const float SeatSideInset = 0.35f;
+    public const float CameraForwardOffset = 0.25f;
+    public const float CameraSideOffset = 0.08f;
+    public const float SeatedSkirtLift = 0.03f;
+
     Vrm10Instance _vrm;
     readonly List<VRM10SpringBoneCollider> _legColliders = new List<VRM10SpringBoneCollider>();
-    readonly List<bool> _legColliderStates = new List<bool>();
+    readonly List<Vrm10InstanceSpringBone.Spring> _skirtSprings = new List<Vrm10InstanceSpringBone.Spring>();
+    readonly List<List<VRM10SpringBoneColliderGroup>> _skirtColliderGroups = new List<List<VRM10SpringBoneColliderGroup>>();
+    readonly List<Vrm10RotationConstraint> _skirtFoldConstraints = new List<Vrm10RotationConstraint>();
+    readonly List<float> _skirtFoldWeights = new List<float>();
+    readonly List<Transform> _skirtFoldRoots = new List<Transform>();
+    readonly List<Vector3> _skirtFoldRootPositions = new List<Vector3>();
 
     public bool IsActive => _state != State.Idle;
 
@@ -151,9 +167,9 @@ public class LapPillowController : MonoBehaviour
     {
         if (_returnRoutine != null)
         {
-            // 上一次起身的"回地板"还在排队，必须取消：否则它会在这次坐下之后把人拽回地板
             StopCoroutine(_returnRoutine);
             _returnRoutine = null;
+            RestoreAfterSeat();
             GameLog.Event("lap_prepare", "cancelled", "pending_return");
         }
 
@@ -259,9 +275,15 @@ public class LapPillowController : MonoBehaviour
                 "state", driver != null ? driver.CurrentStateName : "-");
         }
 
-        HideSkirt(false);
+        RestoreAfterSeat();
+    }
 
-        SetLegSpringColliders(true);
+    void RestoreAfterSeat()
+    {
+        HideSkirt(false);
+        SetSkirtLegCollisions(true);
+        SetSkirtFoldLegConstraints(false);
+        SetSkirtFoldLift(false);
 
         if (relay != null)
         {
@@ -325,7 +347,7 @@ public class LapPillowController : MonoBehaviour
             modelYawOffset = Mathf.Repeat(modelYawOffset + 180f, 360f);
             if (_state != State.Idle && npc != null)
             {
-                npc.transform.rotation = Quaternion.Euler(0f, -modelYawOffset, 0f);
+                npc.transform.rotation = Quaternion.Euler(0f, SeatYaw - modelYawOffset, 0f);
             }
 
             GameLog.Event("lap_flip", "modelYawOffset", GameLog.F(modelYawOffset), "headFwd", HeadForward());
@@ -363,6 +385,92 @@ public class LapPillowController : MonoBehaviour
         }
     }
 
+    void LateUpdate()
+    {
+        if (_state != State.Seated && _state != State.InLap)
+        {
+            return;
+        }
+
+        AlignUpperArmOutward(true);
+        AlignUpperArmOutward(false);
+        LiftForearm(true);
+        LiftForearm(false);
+        AlignHandToThigh(true);
+        AlignHandToThigh(false);
+    }
+
+    void AlignUpperArmOutward(bool left)
+    {
+        var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
+        if (animator == null || !animator.isHuman)
+        {
+            return;
+        }
+
+        var upperArm = animator.GetBoneTransform(left ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm);
+        var chest = animator.GetBoneTransform(HumanBodyBones.Chest);
+        if (upperArm == null || chest == null)
+        {
+            return;
+        }
+
+        var side = Vector3.Dot(upperArm.position - chest.position, npc.transform.right) >= 0f ? 1f : -1f;
+        upperArm.rotation = Quaternion.AngleAxis(
+            side * SeatedArmOutwardDegrees,
+            npc.transform.forward) * upperArm.rotation;
+    }
+
+    void LiftForearm(bool left)
+    {
+        var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
+        if (animator == null || !animator.isHuman)
+        {
+            return;
+        }
+
+        var lowerArm = animator.GetBoneTransform(left ? HumanBodyBones.LeftLowerArm : HumanBodyBones.RightLowerArm);
+        var upperArm = animator.GetBoneTransform(left ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm);
+        var chest = animator.GetBoneTransform(HumanBodyBones.Chest);
+        if (lowerArm != null)
+        {
+            var side = upperArm != null && chest != null
+                ? (Vector3.Dot(upperArm.position - chest.position, npc.transform.right) >= 0f ? 1f : -1f)
+                : 0f;
+            lowerArm.position += Vector3.up * SeatedElbowLift
+                + FacingDirection() * SeatedForearmForward
+                + npc.transform.right * (side * SeatedArmSpread);
+        }
+    }
+
+    void AlignHandToThigh(bool left)
+    {
+        var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
+        if (animator == null || !animator.isHuman)
+        {
+            return;
+        }
+
+        var hand = animator.GetBoneTransform(left ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+        var finger = animator.GetBoneTransform(left ? HumanBodyBones.LeftMiddleProximal : HumanBodyBones.RightMiddleProximal);
+        var upperLeg = animator.GetBoneTransform(left ? HumanBodyBones.LeftUpperLeg : HumanBodyBones.RightUpperLeg);
+        var knee = animator.GetBoneTransform(left ? HumanBodyBones.LeftLowerLeg : HumanBodyBones.RightLowerLeg);
+        if (hand == null || finger == null || upperLeg == null || knee == null)
+        {
+            return;
+        }
+
+        var fingers = finger.position - hand.position;
+        var thigh = knee.position - upperLeg.position;
+        if (fingers.sqrMagnitude < 0.000001f || thigh.sqrMagnitude < 0.000001f)
+        {
+            return;
+        }
+
+        hand.rotation = Quaternion.FromToRotation(fingers.normalized, thigh.normalized) * hand.rotation;
+        hand.position += Vector3.up * SeatedHandLift;
+    }
+
     void BeginSit()
     {
         // 记住传送前她站的地板位置，起身后回到这里（不然会站在床沿上）
@@ -370,10 +478,10 @@ public class LapPillowController : MonoBehaviour
         _hasFloorSpot = true;
 
         // 贴到座位上（先让 root motion 关掉，坐着时不该被动画带着漂）
+        npc.StopTurning();
         npc.transform.position = _seat;
-        // 面朝窗户（+Z）。注意模型正面不一定等于根节点 forward：
-        // 实测：modelYawOffset = 0 时她背对镜头、面朝窗户（F5 翻转验证过）。
-        npc.transform.rotation = Quaternion.Euler(0f, -modelYawOffset, 0f);
+        // 坐在床头左侧床沿，面朝床外；玩家从床内侧躺到她的大腿上。
+        npc.transform.rotation = Quaternion.Euler(0f, SeatYaw - modelYawOffset, 0f);
 
         if (relay != null)
         {
@@ -382,7 +490,9 @@ public class LapPillowController : MonoBehaviour
 
         HideSkirt(true);
 
-        SetLegSpringColliders(false);
+        SetSkirtLegCollisions(true);
+        SetSkirtFoldLegConstraints(true);
+        SetSkirtFoldLift(true);
 
         driver.SetSitting(true);
         _state = State.Seated;
@@ -425,11 +535,10 @@ public class LapPillowController : MonoBehaviour
     }
 
     /// <summary>
-    /// 坐下时把"腿上的 SpringBone 碰撞体"关掉并重建弹簧缓冲。
-    /// 裙子是 spring bone 链，腿折叠后这些碰撞体跑到裙子内部，会把布往外顶——
-    /// 表现为坐下 1~2 秒后裙子鼓成一个帐篷。关掉腿部碰撞体，裙子只受重力自然垂落。
+    /// 设置裙子弹簧链的腿部碰撞组并重建缓冲；坐姿需要保留碰撞来承托裙面。
+    /// FastSpringBoneBufferFactory 不检查 collider.enabled，需要改碰撞组引用时不能只改开关。
     /// </summary>
-    void SetLegSpringColliders(bool on)
+    void SetSkirtLegCollisions(bool on)
     {
         if (_vrm == null)
         {
@@ -450,36 +559,120 @@ public class LapPillowController : MonoBehaviour
                     || n.Contains("knee") || n.Contains("foot") || n.Contains("toe") || n.Contains("hips"))
                 {
                     _legColliders.Add(collider);
-                    _legColliderStates.Add(collider.enabled);
                 }
             }
         }
 
-        if (_legColliders.Count == 0)
+        if (_skirtSprings.Count == 0)
         {
-            GameLog.Event("lap_spring", "result", "no_leg_colliders");
-            return;
-        }
-
-        for (var i = 0; i < _legColliders.Count; i++)
-        {
-            if (_legColliders[i] != null)
+            foreach (var spring in _vrm.SpringBone.Springs)
             {
-                _legColliders[i].enabled = on ? _legColliderStates[i] : false;
+                var isSkirt = spring.Name != null
+                    && spring.Name.IndexOf("skirt", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                if (!isSkirt)
+                {
+                    continue;
+                }
+
+                _skirtSprings.Add(spring);
+                _skirtColliderGroups.Add(new List<VRM10SpringBoneColliderGroup>(spring.ColliderGroups));
             }
         }
 
+        if (_skirtSprings.Count == 0)
+        {
+            GameLog.Event("lap_spring", "result", "no_skirt_springs");
+            return;
+        }
+
+        var groupCount = 0;
+        for (var i = 0; i < _skirtSprings.Count; i++)
+        {
+            if (on)
+            {
+                _skirtSprings[i].ColliderGroups = new List<VRM10SpringBoneColliderGroup>(_skirtColliderGroups[i]);
+            }
+            else
+            {
+                _skirtSprings[i].ColliderGroups = _skirtColliderGroups[i]
+                    .FindAll(group => group != null && !group.Colliders.Exists(_legColliders.Contains));
+            }
+
+            groupCount += _skirtSprings[i].ColliderGroups.Count;
+        }
+
+        var rebuilt = false;
         try
         {
-            _vrm.Runtime?.SpringBone?.ReconstructSpringBone();
+            if (_vrm.Runtime?.SpringBone != null)
+            {
+                rebuilt = _vrm.Runtime.SpringBone.ReconstructSpringBone();
+            }
         }
         catch (System.Exception e)
         {
             Debug.LogWarning($"[LapPillow] 重建弹簧失败：{e.Message}");
         }
 
-        GameLog.Event("lap_spring", "colliders", _legColliders.Count.ToString(), "enabled", on ? "1" : "0");
+        GameLog.Event(
+            "lap_spring",
+            "springs", _skirtSprings.Count.ToString(),
+            "groups", groupCount.ToString(),
+            "legColliders", _legColliders.Count.ToString(),
+            "rebuilt", rebuilt ? "1" : "0");
     }
+    void SetSkirtFoldLegConstraints(bool seated)
+    {
+        if (_skirtFoldConstraints.Count == 0)
+        {
+            foreach (var constraint in npc.GetComponentsInChildren<Vrm10RotationConstraint>(true))
+            {
+                if (constraint.gameObject.name.IndexOf("skirtFold", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    _skirtFoldConstraints.Add(constraint);
+                    _skirtFoldWeights.Add(constraint.Weight);
+                }
+            }
+        }
+
+        for (var i = 0; i < _skirtFoldConstraints.Count; i++)
+        {
+            _skirtFoldConstraints[i].Weight = seated ? SeatedSkirtFoldWeight : _skirtFoldWeights[i];
+        }
+
+        GameLog.Event(
+            "lap_fold",
+            "constraints", _skirtFoldConstraints.Count.ToString(),
+            "weight", seated ? GameLog.F(SeatedSkirtFoldWeight) : "original");
+    }
+
+    void SetSkirtFoldLift(bool seated)
+    {
+        if (_skirtFoldRoots.Count == 0)
+        {
+            foreach (var constraint in _skirtFoldConstraints)
+            {
+                if (constraint.transform.parent != null
+                    && constraint.transform.parent.name.Equals("hips", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    _skirtFoldRoots.Add(constraint.transform);
+                    _skirtFoldRootPositions.Add(constraint.transform.localPosition);
+                }
+            }
+        }
+
+        for (var i = 0; i < _skirtFoldRoots.Count; i++)
+        {
+            var root = _skirtFoldRoots[i];
+            var lift = seated && root.parent != null
+                ? root.parent.InverseTransformDirection(Vector3.up * SeatedSkirtLift)
+                : Vector3.zero;
+            root.localPosition = _skirtFoldRootPositions[i] + lift;
+        }
+
+        GameLog.Event("lap_fold_lift", "roots", _skirtFoldRoots.Count.ToString(), "meters", seated ? GameLog.F(SeatedSkirtLift) : "0");
+    }
+
     /// <summary>量髋骨、把根节点对到"床面 + hipsSitOffset"，并缓存髋高供下次直接摆放。</summary>
     void ApplySeatHeight(string phase)
     {
@@ -674,15 +867,31 @@ public class LapPillowController : MonoBehaviour
 
     Vector3 ComputeLapPoint()
     {
-        // 关键：以髋骨为基准，不是根节点。坐姿下根节点比髋骨高 ~0.4m，
-        // 用根节点会把"大腿点"算到头顶上去（实测相机因此跑到她头上方俯视）。
+        var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
+        if (animator != null && animator.isHuman)
+        {
+            var leftUpper = animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
+            var rightUpper = animator.GetBoneTransform(HumanBodyBones.RightUpperLeg);
+            var leftLower = animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
+            var rightLower = animator.GetBoneTransform(HumanBodyBones.RightLowerLeg);
+            if (leftUpper != null && rightUpper != null && leftLower != null && rightLower != null)
+            {
+                var leftThigh = (leftUpper.position + leftLower.position) * 0.5f;
+                var rightThigh = (rightUpper.position + rightLower.position) * 0.5f;
+                return (leftThigh + rightThigh) * 0.5f + Vector3.up * lapHeight;
+            }
+        }
+
         return HipsPosition() + FacingDirection() * lapForward + Vector3.up * lapHeight;
     }
 
     Vector3 ComputeLapCameraPose()
     {
         _lapPoint = ComputeLapPoint();
-        return _lapPoint + Vector3.up * cameraLift;
+        return _lapPoint
+            + Vector3.up * cameraLift
+            + FacingDirection() * CameraForwardOffset
+            + npc.transform.right * CameraSideOffset;
     }
 
     Vector3 HeadPosition()
@@ -701,7 +910,7 @@ public class LapPillowController : MonoBehaviour
         return npc.transform.position + Vector3.up * 1.3f;
     }
 
-    /// <summary>按床的包围盒算座位：床头往床尾退 seatInsetFromHead，坐在床面上，面朝床尾。</summary>
+    /// <summary>按床的包围盒算座位：床头左侧床沿，从床头往床尾退 seatInsetFromHead。</summary>
     bool TryComputeSeat(out Vector3 seat)
     {
         seat = default;
@@ -752,13 +961,14 @@ public class LapPillowController : MonoBehaviour
             return false;
         }
 
-        // 以床垫为准：床头的包围盒（Base）经常比床垫长，直接用它会把人放到床沿外面（实测 seat z=2.49，床垫只到 2.06）
         var bed = mattress ?? headboard.Value;
-        var headZ = mattress.HasValue ? mattress.Value.max.z : bed.max.z;
+        var headX = headboard.HasValue ? headboard.Value.max.x : bed.max.x;
         var surfaceY = mattress.HasValue ? mattress.Value.max.y : bed.max.y;
 
-        var z = headZ - seatInsetFromHead;
-        z = Mathf.Clamp(z, bed.min.z + 0.45f, bed.max.z - 0.45f);
+        var x = headX - seatInsetFromHead;
+        var lengthBounds = headboard ?? bed;
+        x = Mathf.Clamp(x, lengthBounds.min.x + 0.45f, lengthBounds.max.x - 0.45f);
+        var z = bed.max.z - SeatSideInset;
 
         // 根节点约定是"地面 + groundOffset"（胶囊中心），不是脚底：
         // 站立时 anchor.y + 1.0 才是根节点高度。先按"床面当地面"给初值，
@@ -776,7 +986,7 @@ public class LapPillowController : MonoBehaviour
             seatY = surfaceY + rootOffset;
         }
 
-        seat = new Vector3(bed.center.x, seatY, z);
+        seat = new Vector3(x, seatY, z);
         return true;
     }
 
