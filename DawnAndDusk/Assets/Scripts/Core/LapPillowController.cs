@@ -31,6 +31,9 @@ public class LapPillowController : MonoBehaviour
     [Tooltip("从床头往床尾退多少米坐下")]
     public float seatInsetFromHead = 0.55f;
 
+    [Tooltip("诊断用：坐下时隐藏裙子/连衣裙网格，确认鼓包是不是裙子本身")]
+    public bool hideSkirtWhileSeated;
+
     [Tooltip("勾上则用下面的手写座位（Play 里直接拖 Npc 到满意位置，抄 Inspector 的坐标进来）")]
     public bool useManualSeat;
 
@@ -250,6 +253,8 @@ public class LapPillowController : MonoBehaviour
                 "state", driver != null ? driver.CurrentStateName : "-");
         }
 
+        HideSkirt(false);
+
         SetLegSpringColliders(true);
 
         if (relay != null)
@@ -258,6 +263,30 @@ public class LapPillowController : MonoBehaviour
         }
     }
 
+    /// <summary>诊断用：坐下时隐藏裙子网格，确认"帐篷"是不是裙子本身（蒙皮/弹簧）而不是别的东西。</summary>
+    void HideSkirt(bool hide)
+    {
+        if (!hideSkirtWhileSeated)
+        {
+            return;
+        }
+
+        var names = new List<string>();
+        foreach (var r in npc.GetComponentsInChildren<Renderer>(true))
+        {
+            var n = r.gameObject.name.ToLowerInvariant();
+            if (!(n.Contains("skirt") || n.Contains("dress") || n.Contains("onepiece") || n.Contains("clothes")))
+            {
+                continue;
+            }
+
+            r.enabled = !hide;
+            names.Add(r.gameObject.name);
+        }
+
+        GameLog.Event("lap_skirt", "hidden", hide ? "1" : "0", "count", names.Count.ToString(),
+            "names", string.Join(",", names.GetRange(0, System.Math.Min(names.Count, 4))));
+    }
     /// <summary>唱一句（改自歌词占位）；后续接 AI 音色时替换成音频播放。</summary>
     public void PlayLyric(string text)
     {
@@ -331,6 +360,8 @@ public class LapPillowController : MonoBehaviour
         {
             relay.relay = false;
         }
+
+        HideSkirt(true);
 
         SetLegSpringColliders(false);
 
