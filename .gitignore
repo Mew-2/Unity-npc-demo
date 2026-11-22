@@ -63,3 +63,6 @@ DawnAndDusk/.vsconfig
 # ---- 构建产物：场景预览截图（每次构建都会重拍，不入库） ----
 DawnAndDusk/dsh-apartment-shots/
 DawnAndDusk/dsh-archviz-shots/
+
+# pip 安装时的临时目录（另一个账号创建，git 读不了）
+server/pip-*
