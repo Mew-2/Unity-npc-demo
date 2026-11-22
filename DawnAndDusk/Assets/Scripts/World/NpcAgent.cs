@@ -222,7 +222,8 @@ public class NpcAgent : MonoBehaviour
             pathfinder = FindObjectOfType<GridPathfinder>();
         }
 
-        if (useNavMesh && TryNavMeshPath(target, out var navPoints) && navPoints.Count >= 2)
+        var navPoints = new List<Vector3>();
+        if (useNavMesh && TryNavMeshPath(target, navPoints) && navPoints.Count >= 2)
         {
             var trimmedNav = TrimPathTail(navPoints, stopDistance);
             if (trimmedNav.Count >= 2)
