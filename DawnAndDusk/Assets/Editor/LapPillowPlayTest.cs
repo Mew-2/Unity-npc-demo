@@ -90,8 +90,11 @@ public static class LapPillowPlayTest
 
         yield return Execute(executor, LapCommands());
         var seated = false;
-        yield return WaitForSitLoop(driver, 20f, result => seated = result);
+        var maxSitRootShift = 0f;
+        yield return WaitForSitLoopTrackingHeight(
+            npc, driver, 20f, result => seated = result, shift => maxSitRootShift = shift);
         Check(seated, "first_sit", driver.CurrentStateName);
+        Check(maxSitRootShift <= 0.03f, "first_sit_height_stable", GameLog.F(maxSitRootShift));
         Check(npc.transform.position.x > 4f && npc.transform.position.z > 2.3f, "seat_at_head_left",
             $"{npc.transform.position.x:F2},{npc.transform.position.z:F2}");
         if (!seated)
@@ -109,6 +112,8 @@ public static class LapPillowPlayTest
         Check(HandsFollowThigh(animator), "hands_follow_thigh");
         Check(HandsClearThigh(animator), "hands_clear_thigh");
         Check(HandsSeparated(animator), "hands_separated");
+        var tailClearance = TailClearance(npc);
+        Check(!float.IsNaN(tailClearance) && tailClearance >= 0.08f, "tail_clear_bed", GameLog.F(tailClearance));
         Capture(npc, animator, "01-first-sit.png");
         MovePlayerToLap(lap, npc);
         yield return new WaitForSeconds(0.35f);
@@ -201,6 +206,102 @@ public static class LapPillowPlayTest
         }
 
         done(driver.CurrentStateName == "SitLoop");
+    }
+
+    static IEnumerator WaitForSitLoopTrackingHeight(
+        NpcAgent npc, NpcAnimationDriver driver, float timeout, Action<bool> done, Action<float> maxShift)
+    {
+        var tracking = false;
+        var initialY = 0f;
+        var max = 0f;
+        var capturedStart = false;
+        var animator = npc.GetComponentInChildren<Animator>();
+
+        void Track()
+        {
+            var enteringSit = animator.IsInTransition(0) && animator.GetNextAnimatorStateInfo(0).IsName("SitLoop");
+            if (enteringSit && !capturedStart)
+            {
+                capturedStart = true;
+                Capture(npc, animator, "01s-sit-start.png");
+            }
+
+            if (driver.CurrentStateName != "SitStart" && driver.CurrentStateName != "SitLoop")
+            {
+                return;
+            }
+
+            if (!tracking)
+            {
+                tracking = true;
+                initialY = npc.transform.position.y;
+            }
+
+            max = Mathf.Max(max, Mathf.Abs(npc.transform.position.y - initialY));
+        }
+
+        var deadline = Time.time + timeout;
+        while (driver.CurrentStateName != "SitLoop" && Time.time < deadline)
+        {
+            Track();
+            yield return null;
+        }
+
+        deadline = Time.time + 5f;
+        while (animator.IsInTransition(0) && Time.time < deadline)
+        {
+            Track();
+            yield return null;
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            Track();
+            yield return null;
+        }
+
+        maxShift(max);
+        done(driver.CurrentStateName == "SitLoop");
+    }
+
+    static float TailClearance(NpcAgent npc)
+    {
+        var surfaceY = float.NaN;
+        var mattressVolume = 0f;
+        foreach (var renderer in UnityEngine.Object.FindObjectsOfType<Renderer>())
+        {
+            var name = renderer.gameObject.name.ToLowerInvariant();
+            if (!name.Contains("bed_bedroom") || !(name.Contains("mattress") || name.Contains("cover")))
+            {
+                continue;
+            }
+
+            var volume = renderer.bounds.size.x * renderer.bounds.size.z;
+            if (volume > mattressVolume)
+            {
+                mattressVolume = volume;
+                surfaceY = renderer.bounds.max.y;
+            }
+        }
+
+        if (float.IsNaN(surfaceY))
+        {
+            return float.NaN;
+        }
+
+        var clearance = float.NaN;
+        foreach (var bone in npc.GetComponentsInChildren<Transform>(true))
+        {
+            if (!bone.name.StartsWith("DS_whale_tail_", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var boneClearance = bone.position.y - surfaceY;
+            clearance = float.IsNaN(clearance) ? boneClearance : Mathf.Min(clearance, boneClearance);
+        }
+
+        return clearance;
     }
 
     static bool IsSkirt(Vrm10InstanceSpringBone.Spring spring)
@@ -316,6 +417,12 @@ public static class LapPillowPlayTest
             + Vector3.up * 0.35f;
         camera.transform.rotation = Quaternion.LookRotation(target - camera.transform.position, Vector3.up);
         CaptureView(camera, Path.GetFileNameWithoutExtension(file) + "-side.png");
+        camera.transform.position = npc.transform.position
+            - npc.transform.right * 0.65f
+            + npc.transform.forward * 0.65f
+            + Vector3.up * 0.45f;
+        camera.transform.rotation = Quaternion.LookRotation(target - camera.transform.position, Vector3.up);
+        CaptureView(camera, Path.GetFileNameWithoutExtension(file) + "-oblique.png");
         UnityEngine.Object.Destroy(cameraGo);
     }
 

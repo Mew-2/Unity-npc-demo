@@ -99,6 +99,13 @@ $env:OFFLINE="1"
 - POV 空间：实测床长轴为 X，枕头与床头柜在 x≈4.6，床头板到 x=4.83；鲸鲸座位为 x=4.28、z=2.79（床头左侧床沿、面朝床外）。玩家头朝床头、身体朝床尾。头部以两条大腿骨的实际中点为锚点，镜头仅向膝前 0.25m、侧向 0.08m、上方 0.10m 偏移以避开躯干，再向上看脸。
 - 回归：`Tools → DawnAndDusk → Run Lap Pillow Test`，或命令行 `-executeMethod LapPillowPlayTest.Run`。覆盖两轮真实指令、快速重入、座位 yaw=0、腿部碰撞组保持 8 个、裙褶权重 0.65→0.3→0.65、root motion 恢复、大腿头部锚点、真实 POV、全景布局、头发多角度、上臂外展、双侧袖口、手掌方向与腿部间隙；27 项通过。截图输出 `DawnAndDusk/dsh-lap-test/`（本地）。
 
+**2026-11-23 修复（月铃，公司机）**：
+
+- 首次坐下先穿床再弹起：旧逻辑在 `Walk` 姿态做 `quick` 校准，进入 `SitLoop` 后又瞬移根节点 0.441m。现在 `Prepare` 先采样 `Sit_LookingAround`，恢复 Visual 根变换后量髋高，一次算好座位；移除 `quick`，`final` 只校验剩余误差。
+- 公司机原始包提取三组坐姿 `FBX + .meta` 到 `_LocalTest/Kawaii/`，保留 GUID 与 Humanoid 设置，不入库。
+- `SitStart` 会出现脚踩床的过渡，膝枕到座位后直接 `CrossFadeInFixedTime("SitLoop", 0.35f)`；最终高度校验等混合结束。尾巴 `DS_whale_tail_01` 在 SpringBone 后托举 50°，起身恢复原局部旋转。
+- 回归新增 `first_sit_height_stable` 与 `tail_clear_bed`，并输出正面、侧面、斜前方截图；29 项通过。两次采样髋偏均为 -0.426m，两次 `final` 校正均为 0，整条尾巴最低点高于床面 0.117m。
+
 ## 5. 下一步
 
 1. 对话站位：用玩家身体 yaw + `Physics.Linecast` 视线校验，距离 1.0m

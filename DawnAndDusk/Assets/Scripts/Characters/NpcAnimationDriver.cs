@@ -177,6 +177,11 @@ public class NpcAnimationDriver : MonoBehaviour
         if (HasController)
         {
             _animator.SetBool("Sit", sitting);
+            if (sitting && CurrentStateName != "SitLoop")
+            {
+                // SitStart 会把脚抬到床面；膝枕直接混入稳定坐姿，不播这段踩床过渡。
+                _animator.CrossFadeInFixedTime("SitLoop", 0.35f);
+            }
         }
     }
 

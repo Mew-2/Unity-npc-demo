@@ -10,6 +10,7 @@ using UnityEngine;
 /// 座位是运行时按床的包围盒算的，不写死坐标——床的尺寸/朝向改了她会跟着变。
 /// 全程写 GameLog：lap_prepare / lap_seated / lap_enter / lap_exit，便于按日志调几何。
 /// </summary>
+[DefaultExecutionOrder(11100)]
 public class LapPillowController : MonoBehaviour
 {
     [Header("依赖")]
@@ -80,7 +81,7 @@ public class LapPillowController : MonoBehaviour
     Quaternion _savedCamLocalRot;
     Vector3 _seat;
     float _surfaceY;
-    float _hipOffset = -0.09f;   // 髋骨相对根节点的偏移：先用实测过的估值（上次 0.76-0.85），坐下后再精确校一次并更新
+    float _hipOffset = float.NaN;
     Vector3 _floorSpot;             // 传送上床边之前她站的位置（起身后回到这里）
     bool _hasFloorSpot;
     Vector3 _lapPoint;
@@ -98,8 +99,11 @@ public class LapPillowController : MonoBehaviour
     public const float CameraForwardOffset = 0.25f;
     public const float CameraSideOffset = 0.08f;
     public const float SeatedSkirtLift = 0.03f;
+    public const float SeatedTailLiftDegrees = 50f;
 
     Vrm10Instance _vrm;
+    Transform _tailRoot;
+    Quaternion _tailInitialLocalRotation;
     readonly List<VRM10SpringBoneCollider> _legColliders = new List<VRM10SpringBoneCollider>();
     readonly List<Vrm10InstanceSpringBone.Spring> _skirtSprings = new List<Vrm10InstanceSpringBone.Spring>();
     readonly List<List<VRM10SpringBoneColliderGroup>> _skirtColliderGroups = new List<List<VRM10SpringBoneColliderGroup>>();
@@ -185,6 +189,13 @@ public class LapPillowController : MonoBehaviour
         {
             GameLog.Event("lap_prepare", "result", "missing_refs");
             Debug.LogWarning("[LapPillow] 缺少 npc / driver 引用");
+            return;
+        }
+
+        if (!useManualSeat && !TrySampleSitLoopHipOffset(out _hipOffset))
+        {
+            GameLog.Event("lap_prepare", "result", "no_sit_pose");
+            Debug.LogWarning("[LapPillow] 无法采样 SitLoop 髋骨位置，膝枕不可用");
             return;
         }
 
@@ -284,6 +295,10 @@ public class LapPillowController : MonoBehaviour
         SetSkirtLegCollisions(true);
         SetSkirtFoldLegConstraints(false);
         SetSkirtFoldLift(false);
+        if (_tailRoot != null)
+        {
+            _tailRoot.localRotation = _tailInitialLocalRotation;
+        }
 
         if (relay != null)
         {
@@ -398,6 +413,28 @@ public class LapPillowController : MonoBehaviour
         LiftForearm(false);
         AlignHandToThigh(true);
         AlignHandToThigh(false);
+        LiftTailForSeat();
+    }
+
+    void LiftTailForSeat()
+    {
+        if (_tailRoot == null)
+        {
+            foreach (var bone in npc.GetComponentsInChildren<Transform>(true))
+            {
+                if (bone.name == "DS_whale_tail_01")
+                {
+                    _tailRoot = bone;
+                    _tailInitialLocalRotation = bone.localRotation;
+                    break;
+                }
+            }
+        }
+
+        if (_tailRoot != null)
+        {
+            _tailRoot.rotation = Quaternion.AngleAxis(SeatedTailLiftDegrees, npc.transform.right) * _tailRoot.rotation;
+        }
     }
 
     void AlignUpperArmOutward(bool left)
@@ -512,19 +549,13 @@ public class LapPillowController : MonoBehaviour
     }
 
     /// <summary>
-    /// 用髋骨实测把座位高度对齐到床面：不再靠"髋高 0.2 还是 0.25"这种常数猜。
-    /// 坐下后等 SitLoop 生效，读 Hips 世界 Y，把根节点整体上移/下移到 床面 + hipsSitOffset。
+    /// 座位高度已在 Prepare 时按 SitLoop 采样；这里只校验 Animator 实际播放后的剩余误差。
     /// </summary>
     IEnumerator AlignSeatHeight()
     {
-        // 第一遍：刚坐下就按估值对一次，避免"坐在半空再掉下来"
-        yield return null;
-        yield return null;
-        ApplySeatHeight("quick");
-
-        // 第二遍：等 SitLoop 稳定后精确校一次（换片段时也自动适配），并把髋高缓存下来
+        var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
         var deadline = Time.time + 8f;
-        while (driver != null && driver.CurrentStateName != "SitLoop" && Time.time < deadline)
+        while (driver != null && (driver.CurrentStateName != "SitLoop" || animator.IsInTransition(0)) && Time.time < deadline)
         {
             yield return null;
         }
@@ -671,6 +702,57 @@ public class LapPillowController : MonoBehaviour
         }
 
         GameLog.Event("lap_fold_lift", "roots", _skirtFoldRoots.Count.ToString(), "meters", seated ? GameLog.F(SeatedSkirtLift) : "0");
+    }
+
+    bool TrySampleSitLoopHipOffset(out float hipOffset)
+    {
+        hipOffset = float.NaN;
+        var animator = npc != null ? npc.GetComponentInChildren<Animator>() : null;
+        var hips = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Hips) : null;
+        var controller = animator != null ? animator.runtimeAnimatorController : null;
+        if (hips == null || controller == null)
+        {
+            return false;
+        }
+
+        AnimationClip sitLoop = null;
+        foreach (var clip in controller.animationClips)
+        {
+            if (clip != null && clip.name.IndexOf("Sit_LookingAround", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                sitLoop = clip;
+                break;
+            }
+        }
+
+        if (sitLoop == null)
+        {
+            return false;
+        }
+
+        var visual = animator.transform;
+        var localPosition = visual.localPosition;
+        var localRotation = visual.localRotation;
+        var localScale = visual.localScale;
+        try
+        {
+            sitLoop.SampleAnimation(animator.gameObject, 0f);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[LapPillow] 采样 SitLoop 失败：{e.Message}");
+            return false;
+        }
+        finally
+        {
+            visual.localPosition = localPosition;
+            visual.localRotation = localRotation;
+            visual.localScale = localScale;
+        }
+
+        hipOffset = hips.position.y - npc.transform.position.y;
+        GameLog.Event("lap_seat_sample", "clip", sitLoop.name, "hipOffset", GameLog.F(hipOffset));
+        return !float.IsNaN(hipOffset) && !float.IsInfinity(hipOffset);
     }
 
     /// <summary>量髋骨、把根节点对到"床面 + hipsSitOffset"，并缓存髋高供下次直接摆放。</summary>
@@ -970,22 +1052,8 @@ public class LapPillowController : MonoBehaviour
         x = Mathf.Clamp(x, lengthBounds.min.x + 0.45f, lengthBounds.max.x - 0.45f);
         var z = bed.max.z - SeatSideInset;
 
-        // 根节点约定是"地面 + groundOffset"（胶囊中心），不是脚底：
-        // 站立时 anchor.y + 1.0 才是根节点高度。先按"床面当地面"给初值，
-        // 真正的贴合由 BeginSit 之后的 AlignSeatHeight() 用髋骨实测校准。
         _surfaceY = surfaceY;
-        float seatY;
-        if (!float.IsNaN(_hipOffset))
-        {
-            // 已知坐姿髋高：直接把根节点放到"髋骨 = 床面 + hipsSitOffset"的高度，不再落地后才补
-            seatY = surfaceY + hipsSitOffset - _hipOffset;
-        }
-        else
-        {
-            var rootOffset = npc != null ? npc.groundOffset : 1f;
-            seatY = surfaceY + rootOffset;
-        }
-
+        var seatY = surfaceY + hipsSitOffset - _hipOffset;
         seat = new Vector3(x, seatY, z);
         return true;
     }
