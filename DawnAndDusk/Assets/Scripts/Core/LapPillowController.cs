@@ -22,6 +22,7 @@ public class LapPillowController : MonoBehaviour
     public Transform cameraTransform;
     public NpcLookAtIK lookAt;
     public DialogueUI dialogue;
+    public AudioClip lullabyClip;
 
     [Header("触发")]
     [Tooltip("玩家离她多近时自动进入膝枕视角（米）")]
@@ -87,6 +88,7 @@ public class LapPillowController : MonoBehaviour
     Vector3 _lapPoint;
     Coroutine _transition;
     Coroutine _returnRoutine;
+    AudioSource _lullabySource;
 
     public const float SeatedSkirtFoldWeight = 0.3f;
     public const float SeatedArmOutwardDegrees = 8f;
@@ -113,6 +115,7 @@ public class LapPillowController : MonoBehaviour
     readonly List<Vector3> _skirtFoldRootPositions = new List<Vector3>();
 
     public bool IsActive => _state != State.Idle;
+    public bool LullabyPlaying => _lullabySource != null && _lullabySource.isPlaying;
 
     void Awake()
     {
@@ -224,6 +227,8 @@ public class LapPillowController : MonoBehaviour
             return;
         }
 
+        StopLullaby();
+
         if (_transition != null)
         {
             StopCoroutine(_transition);
@@ -330,15 +335,54 @@ public class LapPillowController : MonoBehaviour
         GameLog.Event("lap_skirt", "hidden", hide ? "1" : "0", "count", names.Count.ToString(),
             "names", string.Join(",", names.GetRange(0, System.Math.Min(names.Count, 4))));
     }
-    /// <summary>唱一句（改自歌词占位）；后续接 AI 音色时替换成音频播放。</summary>
     public void PlayLyric(string text)
     {
-        if (_state != State.InLap || dialogue == null || string.IsNullOrEmpty(text))
+        if (_state != State.InLap || string.IsNullOrEmpty(text))
         {
             return;
         }
 
-        StartCoroutine(LyricRoutine(text));
+        if (lullabyClip == null)
+        {
+            lullabyClip = Resources.Load<AudioClip>("RainLove");
+        }
+
+        if (lullabyClip != null)
+        {
+            if (_lullabySource == null)
+            {
+                _lullabySource = gameObject.AddComponent<AudioSource>();
+                _lullabySource.playOnAwake = false;
+                _lullabySource.loop = false;
+                _lullabySource.spatialBlend = 0f;
+                _lullabySource.volume = 0.65f;
+            }
+
+            _lullabySource.Stop();
+            _lullabySource.clip = lullabyClip;
+            _lullabySource.Play();
+            if (dialogue != null)
+            {
+                dialogue.ShowLine("♪ 鲸鲸轻轻唱起《雨爱》");
+            }
+
+            GameLog.Event("lullaby", "result", "play", "clip", lullabyClip.name, "seconds", GameLog.F(lullabyClip.length));
+            return;
+        }
+
+        if (dialogue != null)
+        {
+            StartCoroutine(LyricRoutine(text));
+        }
+    }
+
+    void StopLullaby()
+    {
+        if (_lullabySource != null && _lullabySource.isPlaying)
+        {
+            _lullabySource.Stop();
+            GameLog.Event("lullaby", "result", "stop");
+        }
     }
 
     IEnumerator LyricRoutine(string text)

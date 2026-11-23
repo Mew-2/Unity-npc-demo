@@ -128,10 +128,13 @@ public static class LapPillowPlayTest
         CaptureView(Camera.main, "01p-first-lap-pov.png");
         CaptureLayout("01o-layout.png");
         CaptureHairAngles(npc, animator);
+        yield return Execute(executor, SingCommands());
+        Check(lap.LullabyPlaying, "lullaby_play");
 
         var exitedAt = Time.time;
         yield return Execute(executor, StandCommands());
         Check(!lap.IsActive, "exit");
+        Check(!lap.LullabyPlaying, "lullaby_stop_on_exit");
 
         executor.StartCoroutine(executor.Execute(LapCommands()));
         yield return null;
@@ -177,6 +180,14 @@ public static class LapPillowPlayTest
         {
             new DirectorClient.CommandDto { op = "set", target = "npc", state = "lap" },
             new DirectorClient.CommandDto { op = "look_at", entity = "npc", target = "player" },
+        };
+    }
+
+    static DirectorClient.CommandDto[] SingCommands()
+    {
+        return new[]
+        {
+            new DirectorClient.CommandDto { op = "set", target = "npc", state = "sing" },
         };
     }
 

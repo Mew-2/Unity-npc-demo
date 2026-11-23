@@ -7,6 +7,7 @@
 | 资产 | 格式 | 来源 | 授权 | 状态 |
 |---|---|---|---|---|
 | DeepSeek-chan VRM（鲸鱼娘） | VRM 1.0 | [tegnike/deepseek-chan-vrm](https://github.com/tegnike/deepseek-chan-vrm) | CC BY-NC-SA 4.0：免费、非商用、需署名、改后同协议 | **v1 采用**（2026-11-09 定） |
+| 《雨爱》AI 翻唱人声 | WAV | 用户提供的本地音频 | 仅限本地测试，不入库、不公开分发 | 膝枕摇篮曲（2026-11-23） |
 
 - 规格：18 个预设表情 + 23 个部件表情、40 根摇摆骨、约 9.2 万三角面、MToon
 - 署名：溟月（上善无形）、女仆版（ZipZipPipe）、3D（ニケ / tegnike）

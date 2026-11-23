@@ -25,6 +25,7 @@
 |---|---|---|---|
 | Kawaii 动画 + controller + 步速表 | `DawnAndDusk/Assets/_LocalTest/Kawaii/` | 6.8 MB | 是 |
 | ArchViz 公寓场景 | `DawnAndDusk/Assets/_LocalTest/ArchViz/` | 3.2 GB | 是 |
+| 《雨爱》摇篮曲 | `DawnAndDusk/Assets/_LocalTest/Audio/Resources/RainLove.wav` | 40.3 MB | 唱歌时需要 |
 | 调试日志（可选） | `DawnAndDusk/Logs/` | 0.7 MB | 否 |
 | Kawaii 原包（重抽 FBX 用） | `C:\baidunetdiskdownload\KAWAII ANIMATIONS 100 v1.10.3.unitypackage` | 78.5 MB | 否 |
 
@@ -84,8 +85,8 @@ $env:OFFLINE="1"
 - `LapPillowController`：座位按床的包围盒运行时计算（实测床长轴为 X，床头往床尾退 0.55m），不写死坐标
 - `NpcLookAtIK`：`OnAnimatorIK` 抬头/低头；controller 层已开 `iKPass`
 - 指令：`set npc lap|sit|stand|sing`、`set player lap|stand`；`move` 会自动退出膝枕
-- 日志：`lap_prepare` / `lap_seated` / `lap_enter` / `lap_exit` / `lyric`
-- 歌词先用占位（`♪ 窗外的天气 就像是你多变的表情 ♪`），接 AI 音色后替换
+- 日志：`lap_prepare` / `lap_seated` / `lap_enter` / `lap_exit` / `lyric` / `lullaby`
+- 摇篮曲：膝枕内说「我想听鲸鲸唱《雨爱》」播放本地音频；起身或移动时停止，缺文件时保留文字歌词兜底
 
 **验证步骤**：`Build Kawaii Animator`（重建 controller）→ `Build Apartment Demo`（装配 LapPillow）
 → Play → 说「想要膝枕」→ 走近 → 说「起来」。
@@ -105,6 +106,11 @@ $env:OFFLINE="1"
 - 公司机原始包提取三组坐姿 `FBX + .meta` 到 `_LocalTest/Kawaii/`，保留 GUID 与 Humanoid 设置，不入库。
 - `SitStart` 会出现脚踩床的过渡，膝枕到座位后直接 `CrossFadeInFixedTime("SitLoop", 0.35f)`；最终高度校验等混合结束。尾巴 `DS_whale_tail_01` 在 SpringBone 后托举 50°，起身恢复原局部旋转。
 - 回归新增 `first_sit_height_stable` 与 `tail_clear_bed`，并输出正面、侧面、斜前方截图；29 项通过。两次采样髋偏均为 -0.426m，两次 `final` 校正均为 0，整条尾巴最低点高于床面 0.117m。
+
+**2026-11-23 摇篮曲（月谣，自机）**：
+
+- 用户提供的 AI 翻唱《雨爱》已接入 `_LocalTest/Audio/Resources/RainLove.wav`（44.1kHz 双声道，约 228 秒），本地使用、不入库。已有 `_LocalTest` 的公司机只需补拷 `Audio/` 及 `.meta`。
+- 膝枕内 `set npc sing` 播放，音量 0.65、不循环；起身或移动停止。`lullaby` 日志记录 play/stop，回归覆盖真实加载播放与退出停止，全部通过。
 
 ## 5. 下一步
 
