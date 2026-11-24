@@ -15,6 +15,8 @@ public class CommandExecutor : MonoBehaviour
     public StateSwitcher state;
     [Tooltip("膝枕：set npc lap / set player stand 走它")]
     public LapPillowController lap;
+    [Tooltip("陪睡：set npc sleep / set player sleep，stand 退出")]
+    public SleepController sleep;
 
     public bool IsBusy { get; private set; }
 
@@ -50,7 +52,8 @@ public class CommandExecutor : MonoBehaviour
             switch (command.op)
             {
                 case "move":
-                    if (lap != null) { lap.Exit(); }   // 任何移动都先退出膝枕
+                    if (lap != null) { lap.Exit(); }
+                    if (sleep != null) { sleep.Exit(true); }
 
                     if (!CanMove(command))
                     {
@@ -71,9 +74,9 @@ public class CommandExecutor : MonoBehaviour
                     break;
 
                 case "look_at":
-                    if (lap != null && lap.IsActive)
+                    if ((lap != null && lap.IsActive) || (sleep != null && sleep.IsActive))
                     {
-                        GameLog.Event("cmd_skip", "op", "look_at", "reason", "lap_active");
+                        GameLog.Event("cmd_skip", "op", "look_at", "reason", "pose_active");
                         break;
                     }
 
@@ -88,24 +91,34 @@ public class CommandExecutor : MonoBehaviour
                     break;
 
                 case "set":
-                    // 膝枕相关：npc sit/lap、player lap/stand，交给 LapPillowController
                     if (command.target == "npc" || command.target == "player")
                     {
-                        if (lap == null)
+                        if (command.state == "sleep")
                         {
-                            Debug.LogWarning($"[CommandExecutor] 没有 LapPillowController，set {command.target}={command.state} 被忽略");
-                            continue;
-                        }
-
-                        if (command.state == "lap" || command.state == "sit")
-                        {
-                            lap.Prepare();
+                            if (sleep == null)
+                            {
+                                Debug.LogWarning("[CommandExecutor] 没有 SleepController，陪睡被忽略");
+                                continue;
+                            }
+                            if (lap != null) { lap.Exit(); }
+                            sleep.Prepare();
                         }
                         else if (command.state == "stand")
                         {
-                            lap.Exit();
+                            if (lap != null) { lap.Exit(); }
+                            if (sleep != null) { sleep.Exit(); }
                         }
-                        else if (command.state == "sing")
+                        else if (command.state == "lap" || command.state == "sit")
+                        {
+                            if (lap == null)
+                            {
+                                Debug.LogWarning("[CommandExecutor] 没有 LapPillowController，膝枕被忽略");
+                                continue;
+                            }
+                            if (sleep != null) { sleep.Exit(true); }
+                            lap.Prepare();
+                        }
+                        else if (command.state == "sing" && lap != null)
                         {
                             lap.PlayLyric("♪ 窗外的天气 就像是你多变的表情 ♪\n♪ ～♪");
                         }

@@ -64,6 +64,7 @@ DawnAndDusk/.vsconfig
 DawnAndDusk/dsh-apartment-shots/
 DawnAndDusk/dsh-archviz-shots/
 DawnAndDusk/dsh-lap-test/
+DawnAndDusk/dsh-sleep-test/
 
 # pip 安装时的临时目录（另一个账号创建，git 读不了）
 server/pip-*

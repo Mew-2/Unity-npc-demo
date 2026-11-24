@@ -20,6 +20,22 @@
       }
     },
     {
+      "player_text": "陪我睡",
+      "response": {
+        "say": "……真拿你没办法。躺好吧，鲸鲸陪着你。",
+        "commands": [
+          { "op": "set", "target": "npc", "state": "sleep" }
+        ]
+      }
+    },
+    {
+      "player_text": "晚安",
+      "response": {
+        "say": "晚安。……鲸鲸在这里，安心睡吧。",
+        "commands": []
+      }
+    },
+    {
       "player_text": "起来",
       "response": {
         "say": "嗯……那就起来吧。",

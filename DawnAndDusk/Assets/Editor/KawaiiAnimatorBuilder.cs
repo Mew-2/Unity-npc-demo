@@ -30,6 +30,9 @@ public static class KawaiiAnimatorBuilder
     const string SitStartPath = Root + "/@KA_Sit_Start.FBX";
     const string SitLoopPath = Root + "/@KA_Sit_LookingAround.FBX";
     const string SitEndPath = Root + "/@KA_Sit_End.FBX";
+    const string SleepStartPath = Root + "/@KA_Sleep_TurnToTheSide_Start.FBX";
+    const string SleepLoopPath = Root + "/@KA_Sleep_TurnToTheSide_Loop.FBX";
+    const string SleepEndPath = Root + "/@KA_Sleep_TurnToTheSide_End.FBX";
     const string BowPath = Root + "/@KA_Idle44_GreetingBow.FBX";
 
     [MenuItem("Tools/DawnAndDusk/Build Kawaii Animator")]
@@ -47,6 +50,9 @@ public static class KawaiiAnimatorBuilder
         var sitStart = LoadClip(SitStartPath, "Sit_Start");
         var sitLoop = LoadClip(SitLoopPath, "Sit_LookingAround");
         var sitEnd = LoadClip(SitEndPath, "Sit_End");
+        var sleepStart = LoadClip(SleepStartPath, "Sleep_TurnToTheSide_Start");
+        var sleepLoop = LoadClip(SleepLoopPath, "Sleep_TurnToTheSide_Loop");
+        var sleepEnd = LoadClip(SleepEndPath, "Sleep_TurnToTheSide_End");
         var bow = LoadClip(BowPath, "Idle44_GreetingBow");
 
         if (idle == null || walk == null)
@@ -63,6 +69,9 @@ public static class KawaiiAnimatorBuilder
         if (sitStart != null) SetLoop(sitStart, false);
         if (sitLoop != null) SetLoop(sitLoop, true);
         if (sitEnd != null) SetLoop(sitEnd, false);
+        if (sleepStart != null) SetLoop(sleepStart, false);
+        if (sleepLoop != null) SetLoop(sleepLoop, true);
+        if (sleepEnd != null) SetLoop(sleepEnd, false);
         if (bow != null) SetLoop(bow, false);
 
         if (!AssetDatabase.IsValidFolder(ResourcesDir))
@@ -86,6 +95,7 @@ public static class KawaiiAnimatorBuilder
         controller.AddParameter("SpeedRatio", AnimatorControllerParameterType.Float);
         controller.AddParameter("Braking", AnimatorControllerParameterType.Bool);
         controller.AddParameter("Sit", AnimatorControllerParameterType.Bool);
+        controller.AddParameter("Sleep", AnimatorControllerParameterType.Bool);
         controller.AddParameter("Pivot", AnimatorControllerParameterType.Trigger);
         controller.AddParameter("Bow", AnimatorControllerParameterType.Trigger);
 
@@ -245,6 +255,56 @@ public static class KawaiiAnimatorBuilder
             }
         }
 
+        if (sleepLoop != null)
+        {
+            var sleepLoopState = machine.AddState("SleepLoop");
+            sleepLoopState.motion = sleepLoop;
+            sleepLoopState.mirror = true;
+            AnimatorState sleepStartState = null;
+            if (sleepStart != null)
+            {
+                sleepStartState = machine.AddState("SleepStart");
+                sleepStartState.motion = sleepStart;
+                sleepStartState.mirror = true;
+            }
+
+            AnimatorState sleepEndState = null;
+            if (sleepEnd != null)
+            {
+                sleepEndState = machine.AddState("SleepEnd");
+                sleepEndState.motion = sleepEnd;
+                sleepEndState.mirror = true;
+            }
+
+            var sleepEntry = sleepStartState != null ? sleepStartState : sleepLoopState;
+            var toSleep = idleState.AddTransition(sleepEntry);
+            toSleep.AddCondition(AnimatorConditionMode.If, 0f, "Sleep");
+            toSleep.duration = 0.2f;
+            toSleep.hasExitTime = false;
+
+            if (sleepStartState != null)
+            {
+                var startToLoop = sleepStartState.AddTransition(sleepLoopState);
+                startToLoop.hasExitTime = true;
+                startToLoop.exitTime = 0.9f;
+                startToLoop.duration = 0.2f;
+            }
+
+            var sleepExit = sleepEndState != null ? (AnimatorState)sleepEndState : idleState;
+            var loopToEnd = sleepLoopState.AddTransition(sleepExit);
+            loopToEnd.AddCondition(AnimatorConditionMode.IfNot, 0f, "Sleep");
+            loopToEnd.duration = 0.2f;
+            loopToEnd.hasExitTime = false;
+
+            if (sleepEndState != null)
+            {
+                var endToIdle = sleepEndState.AddTransition(idleState);
+                endToIdle.hasExitTime = true;
+                endToIdle.exitTime = 0.9f;
+                endToIdle.duration = 0.2f;
+            }
+        }
+
         if (bow != null)
         {
             var bowState = machine.AddState("Bow");
@@ -288,7 +348,7 @@ public static class KawaiiAnimatorBuilder
             $"[Kawaii] 已生成 {ControllerPath}\n" +
             $"  Idle={idle.name}\n" +
             $"  Walk={walk.name} (Start={walkStart != null} Stop={walkStop != null} Pivot={pivot != null})\n" +
-            $"  Sit={(sitLoop != null)} Bow={(bow != null)}");
+            $"  Sit={(sitLoop != null)} Sleep={(sleepLoop != null)} Bow={(bow != null)}");
     }
 
     /// <summary>
@@ -434,6 +494,9 @@ public static class KawaiiAnimatorBuilder
         EnsureLoop(SitStartPath, false);
         EnsureLoop(SitLoopPath, true);
         EnsureLoop(SitEndPath, false);
+        EnsureLoop(SleepStartPath, false);
+        EnsureLoop(SleepLoopPath, true);
+        EnsureLoop(SleepEndPath, false);
         EnsureLoop(BowPath, false);
     }
 

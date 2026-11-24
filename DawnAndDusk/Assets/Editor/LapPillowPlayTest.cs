@@ -129,7 +129,7 @@ public static class LapPillowPlayTest
         CaptureLayout("01o-layout.png");
         CaptureHairAngles(npc, animator);
         yield return Execute(executor, SingCommands());
-        Check(lap.LullabyPlaying, "lullaby_play");
+        Check(lap.lullabyClip == null ? !lap.LullabyPlaying : lap.LullabyPlaying, "lullaby_play_or_text_fallback");
 
         var exitedAt = Time.time;
         yield return Execute(executor, StandCommands());

@@ -1,10 +1,10 @@
 # SPEC — Unity + LLM NPC Demo
 
-- 版本：**v1.2（2026-11-06 范围扩展）**
-- 范围：1 个场景（夜 / 晨两幕）/ 4 条指令（spawn / move / look_at / set）/ 锚点语义布点 / **VRM 鲸鲸（VRoid 自捏）** / 5 个表情 / 4 个玩家动作反应 / 膝枕 / 可运行 demo + 录屏
+- 版本：**v1.3（2026-11-24 陪睡扩展）**
+- 范围：1 个场景（夜 / 晨两幕）/ 4 条指令（spawn / move / look_at / set）/ 锚点语义布点 / **VRM 鲸鲸（VRoid 自捏）** / 5 个表情 / 4 个玩家动作反应 / 膝枕 / 陪睡 / 可运行 demo + 录屏
 - 目标完工：**2026-12-12**（AI 主力编码，VRM 美术管线占大头）
 
-> v1.2 已定稿。执行交接见 `docs/HANDOFF.md`，实时状态也以它为准。
+> 执行交接见 `docs/HANDOFF.md`，实时状态也以它为准。
 
 ## 0. 考纲对齐（JD 原文 · 2026-11-04 勘误后）
 
@@ -105,7 +105,7 @@ v2 清单（记着，不主动做）：NPC 人格生成、动画生成与预览�
 | `spawn` | `anchor`（必填）、`name`（选填，≤8 字） | 在锚点召唤一只夜灯精灵 | 锚点存在且不是 `player`；场上 ≤ 5 只 | 整批丢弃 |
 | `move` | `entity`（必填：`npc` 或 `wisp_N`）、`anchor`（必填） | NPC 沿锚点图走过去；精灵直线飘过去 | 实体存在；锚点存在；`player` 不可作目的地 | 整批丢弃 |
 | `look_at` | `entity`（必填，目前只有 `npc`）、`target`（必填：锚点名或 `player`） | NPC 转身面向目标（0.5s 平滑转身） | 实体存在；target 存在 | 整批丢弃 |
-| `set` | `target`（必填：`light` / `curtain` / `outfit` / `npc` / `player`）、`state`（必填） | `light`: on/off；`curtain`: open/closed；`outfit`: nightgown/daydress；`npc`: sit/stand；`player`: lap/stand | target、state 在枚举内；`player=lap` 需 npc 在 `bed` 且 `npc=sit` | 整批丢弃 |
+| `set` | `target`（必填：`light` / `curtain` / `outfit` / `npc` / `player`）、`state`（必填） | `light`: on/off；`curtain`: open/closed；`outfit`: nightgown/daydress；`npc`: sit/lap/stand/sing/sleep；`player`: lap/sleep/stand | target、state 在枚举内；陪睡只由明确请求触发，晚安不触发 sleep | 整批丢弃 |
 
 约定：
 

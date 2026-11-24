@@ -185,6 +185,15 @@ public class NpcAnimationDriver : MonoBehaviour
         }
     }
 
+    public void SetSleeping(bool sleeping)
+    {
+        if (HasController)
+        {
+            _animator.SetBool("Sleep", sleeping);
+            _animator.CrossFadeInFixedTime(sleeping ? "SleepStart" : "SleepEnd", 0.2f);
+        }
+    }
+
     public void PlayBow()
     {
         if (HasController)
@@ -265,6 +274,21 @@ public class NpcAnimationDriver : MonoBehaviour
         if (state.IsName("Sit"))
         {
             return "Sit";
+        }
+
+        if (state.IsName("SleepStart"))
+        {
+            return "SleepStart";
+        }
+
+        if (state.IsName("SleepLoop"))
+        {
+            return "SleepLoop";
+        }
+
+        if (state.IsName("SleepEnd"))
+        {
+            return "SleepEnd";
         }
 
         if (state.IsName("Bow"))

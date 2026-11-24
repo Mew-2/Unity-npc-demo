@@ -38,10 +38,11 @@
 | 图库 | 内容 | 授权 | 用途 |
 |---|---|---|---|
 | [DeepSeek 鲸鱼娘角色图集](https://iphsiibl.github.io/deepseek-whale-girl-gallery/#p-sheets) | **165 张 / 5 分区**：三视图设定、萌娘百科归档、7 套换装三视图、社区二创 147 张、壁纸 | **CC BY-NC-SA 4.0**（署名、禁商用、衍生同协议） | 角色参考、立绘、img2img / ControlNet 垫图、UI 素材 |
+| `references/deepseek-three-view.png` | 用户提供的正 / 侧 / 背三视图 | 授权信息未单独确认，仅作项目内参考 | 睡姿、泡泡袖、裙摆与尾巴适配 |
 
 - 上游资产库：[TreapGoGo/deepseek-whale-girl](https://github.com/TreapGoGo/deepseek-whale-girl)；每张图的作者与出处见其 `ATTRIBUTION.md`
 - 授权链：原型「溟月」上善无形 → 女仆版 ZipZipPipe → 社区二创
-- **只引用链接，不把图片提交进仓库**（版权 + 体积）
+- 外部图集**只引用链接，不把图片提交进仓库**（版权 + 体积）；用户明确提供的单张三视图单独登记。
 - 适合：给 VRoid / Charakuru / 图像模型做角色一致性参考；做 UI 立绘时按 CC 要求署名
 
 ## 相关链接

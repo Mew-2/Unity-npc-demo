@@ -471,6 +471,13 @@ public static class ApartmentSceneBuilder
         lap.dialogue = dialogue;
         executor.lap = lap;
 
+        var sleep = directorGo.AddComponent<SleepController>();
+        sleep.npc = npc;
+        sleep.player = player;
+        sleep.playerLook = look;
+        sleep.cameraTransform = camera.transform;
+        executor.sleep = sleep;
+
         executor.state = state;
 
         EditorSceneManager.SaveScene(scene, OutputScene);

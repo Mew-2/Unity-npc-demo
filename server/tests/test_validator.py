@@ -41,6 +41,12 @@ def test_unknown_op():
     assert errors
 
 
+def test_sleep_state_enum():
+    assert validate_commands([{"op": "set", "target": "npc", "state": "sleep"}], WORLD) == []
+    assert validate_commands([{"op": "set", "target": "player", "state": "sleep"}], WORLD) == []
+    assert validate_commands([{"op": "set", "target": "npc", "state": "good_night"}], WORLD)
+
+
 def test_max_commands():
     commands = [{"op": "look_at", "entity": "npc", "target": "player"}] * 6
     assert validate_commands(commands, WORLD)

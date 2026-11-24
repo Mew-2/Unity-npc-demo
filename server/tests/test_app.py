@@ -39,6 +39,18 @@ def test_offline_valid_turn():
     assert body["commands"]
 
 
+def test_offline_sleep_request():
+    response = client.post("/direct", json={"player_text": "陪我睡", "world": WORLD})
+    assert response.status_code == 200
+    assert response.json()["commands"] == [{"op": "set", "target": "npc", "state": "sleep"}]
+
+
+def test_good_night_is_dialogue_not_sleep_trigger():
+    response = client.post("/direct", json={"player_text": "晚安", "world": WORLD})
+    assert response.status_code == 200
+    assert response.json()["commands"] == []
+
+
 def test_invalid_commands_are_dropped():
     world = {
         "anchors": [{"id": "door", "desc": "门口"}],

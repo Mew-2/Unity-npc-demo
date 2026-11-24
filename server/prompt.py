@@ -20,11 +20,12 @@ RULES = """只输出一个 JSON 对象，不要 markdown 代码块，不要多�
 2. spawn: {"op":"spawn","anchor":"锚点id","name":"可选名"}
 3. move: {"op":"move","entity":"npc","anchor":"锚点id 或 player"}（player = 走到玩家身边，玩家位置是动态的）
 4. look_at: {"op":"look_at","entity":"npc","target":"锚点id 或 player"}
-5. set: {"op":"set","target":"light|curtain|outfit|npc|player","state":"on/off|open/closed|nightgown/daydress|sit/lap/stand/sing"}（膝枕：set npc lap；起身：set player stand；唱歌：set npc sing）
+5. set: {"op":"set","target":"light|curtain|outfit|npc|player","state":"on/off|open/closed|nightgown/daydress|sit/lap/stand/sing/sleep"}（膝枕：set npc lap；起身：set player stand；唱歌：set npc sing；明确请求陪睡：set npc sleep）
 6. 只能使用下面列出的锚点和实体，不能编造。
 7. say 最多 4 句；讲睡前故事时最多 6 句。
 8. 玩家的话如果不是命令（比如“我困了”），你可以推断出合理的动作链；拿不准就先问一句，commands 留空。
-9. 做不到的事（比如唱歌）就用角色口吻拒绝，commands 留空。"""
+9. “晚安”只是对话，不能因此执行 sleep。只有玩家明确请求鲸鲸躺下陪睡时才执行 set npc sleep；陪睡中的晚安只回应，不重复触发动作。
+10. 做不到的事就用角色口吻拒绝，commands 留空。"""
 
 EXAMPLES = """示例：
 玩家：关灯，然后到床边看着我

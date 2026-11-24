@@ -112,6 +112,14 @@ $env:OFFLINE="1"
 - 用户提供的 AI 翻唱《雨爱》已接入 `_LocalTest/Audio/Resources/RainLove.wav`（44.1kHz 双声道，约 228 秒），本地使用、不入库。已有 `_LocalTest` 的公司机只需补拷 `Audio/` 及 `.meta`。
 - 膝枕内 `set npc sing` 播放，音量 0.65、不循环；起身或移动停止。`lullaby` 日志记录 play/stop，回归覆盖真实加载播放与退出停止，全部通过。
 
+**2026-11-24 陪睡（月铃，公司机）**：
+
+- 原包提取 `Sleep_TurnToTheSide` 完整版与 Start/Loop/End 到 `_LocalTest/Kawaii/`，不入库；Animator 新增 `SleepStart → SleepLoop → SleepEnd`。
+- `陪我睡` 执行 `set npc sleep`，`晚安` 只对话、不触发动作，`起来` 与移动退出；新增独立 `SleepController`，陪睡相机与玩家控制在退出时恢复。
+- 睡姿镜像并抵消头尾方向，身体与床长边平行；鲸鲸和玩家头部靠近枕头、玩家在床内且看到正脸，尾巴超出床沿部分自然下垂。
+- `Tools → DawnAndDusk → Run Sleep Test` 自动重建 Animator/场景并输出正面、侧面、斜前方和 POV 截图到 `DawnAndDusk/dsh-sleep-test/`；20 项通过。服务端 15 项通过。A/B 材质排查确认上装泡泡袖遮脸，整条左臂向髋部收拢并微调视线后正脸无遮挡；三视图存于 `docs/references/deepseek-three-view.png`。
+- 摇篮曲回归支持有音频验播放、无音频验文字兜底。
+
 ## 5. 下一步
 
 1. 对话站位：用玩家身体 yaw + `Physics.Linecast` 视线校验，距离 1.0m
