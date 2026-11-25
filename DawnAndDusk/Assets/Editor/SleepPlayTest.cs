@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -124,15 +125,41 @@ public static class SleepPlayTest
             hips.position.ToString("F2"));
         Transform tailRoot = null;
         Transform tailTip = null;
+        var tailBones = new List<Transform>();
         foreach (var bone in npc.GetComponentsInChildren<Transform>(true))
         {
             if (bone.name == "DS_whale_tail_01") { tailRoot = bone; }
             if (bone.name == "DS_whale_tail_05_CharakitEnd") { tailTip = bone; }
+            if (bone.name.StartsWith("DS_whale_tail", StringComparison.Ordinal))
+            {
+                tailBones.Add(bone);
+            }
         }
         var outside = tailTip != null && (tailTip.position.z < bed.min.z || tailTip.position.z > bed.max.z
             || tailTip.position.x < bed.min.x || tailTip.position.x > bed.max.x);
+        GameLog.Event("sleep_tail_probe",
+            "root", tailRoot != null ? tailRoot.position.ToString("F3") : "missing",
+            "tip", tailTip != null ? tailTip.position.ToString("F3") : "missing",
+            "bedMin", bed.min.ToString("F3"),
+            "bedMax", bed.max.ToString("F3"));
         Check(tailRoot != null && tailTip != null && outside && tailTip.position.y < tailRoot.position.y,
             "tail_droops_off_bed", tailTip != null ? tailTip.position.ToString("F2") : "missing");
+
+        // 尾巴不能有任何一段低于床面（穿床）；窗边过道视角主要看这个
+        var tailInside = false;
+        var worstTail = string.Empty;
+        foreach (var bone in tailBones)
+        {
+            var p = bone.position;
+            var insideXZ = p.x > bed.min.x && p.x < bed.max.x && p.z > bed.min.z && p.z < bed.max.z;
+            if (insideXZ && p.y < bed.max.y + 0.02f)
+            {
+                tailInside = true;
+                worstTail = $"{bone.name}@{p:F2} surface={bed.max.y:F2}";
+                break;
+            }
+        }
+        Check(!tailInside, "tail_not_inside_bed", worstTail);
         var lowerArm = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
         Check(lowerArm.position.y < head.position.y - 0.12f, "sleep_sleeve_lowered",
             $"{lowerArm.position.y:F2},{head.position.y:F2}");
@@ -227,6 +254,33 @@ public static class SleepPlayTest
             camera.transform.rotation = Quaternion.LookRotation(target - camera.transform.position, Vector3.up);
             CaptureView(camera, $"{file}-{names[i]}.png");
         }
+
+        // 窗边过道视角：专门看尾巴超出床沿后的下垂与穿床
+        var window = GameObject.Find("Anchor_window");
+        if (window != null)
+        {
+            camera.transform.position = window.transform.position + new Vector3(0.0f, 1.6f, -1.8f);
+            camera.transform.rotation = Quaternion.LookRotation(target - camera.transform.position, Vector3.up);
+            CaptureView(camera, $"{file}-window.png");
+        }
+
+        // 对准尾巴尖的两个特写，确认没有穿床/穿墙
+        Transform tailTip = null;
+        foreach (var bone in npc.GetComponentsInChildren<Transform>(true))
+        {
+            if (bone.name == "DS_whale_tail_05_CharakitEnd") { tailTip = bone; break; }
+        }
+        if (tailTip != null)
+        {
+            var offsets = new[] { new Vector3(1.2f, 0.9f, -0.8f), new Vector3(-1.2f, 0.9f, 0.8f) };
+            for (var i = 0; i < offsets.Length; i++)
+            {
+                camera.transform.position = tailTip.position + offsets[i];
+                camera.transform.rotation = Quaternion.LookRotation(tailTip.position - camera.transform.position, Vector3.up);
+                CaptureView(camera, $"{file}-tail-{i}.png");
+            }
+        }
+
         UnityEngine.Object.Destroy(cameraGo);
     }
 

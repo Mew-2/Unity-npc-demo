@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 [DefaultExecutionOrder(11100)]
@@ -35,6 +36,7 @@ public class SleepController : MonoBehaviour
     Vector3 _bedCenter;
     float _surfaceY;
     float _hipOffset;
+    Bounds _bedBounds;
     Vector3 _savedCamLocalPos;
     Quaternion _savedCamLocalRot;
     Coroutine _enterRoutine;
@@ -42,6 +44,7 @@ public class SleepController : MonoBehaviour
     Coroutine _returnRoutine;
     Transform _tailRoot;
     Quaternion _tailInitialLocalRotation;
+    readonly List<Transform> _tailBones = new List<Transform>();
 
     const float SleepRootYawOffset = 180f;
     const float SleepArmBackOffset = 0.25f;
@@ -121,6 +124,7 @@ public class SleepController : MonoBehaviour
         if (_state == State.Preparing || _state == State.InSleep)
         {
             LayTailForSleep();
+            ClampTailInsideBed();
             RestLeftArmForSleep();
         }
         if (_state == State.InSleep && _cameraRoutine == null && cameraTransform != null)
@@ -146,6 +150,7 @@ public class SleepController : MonoBehaviour
 
         var animator = npc.GetComponentInChildren<Animator>();
         var head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
+        var hips = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Hips) : null;
         if (_tailRoot == null || head == null)
         {
             return;
@@ -156,13 +161,108 @@ public class SleepController : MonoBehaviour
             return;
         }
 
-        var outward = head.forward;
+        // 尾巴应朝床尾（头→髋的反方向）越过脚侧床沿，而不是朝窗/墙那侧。
+        var outward = hips != null ? hips.position - head.position : head.forward;
         outward.y = 0f;
+        if (outward.sqrMagnitude < 0.0001f)
+        {
+            outward = -head.forward;
+            outward.y = 0f;
+        }
+
         var segment = _tailRoot.GetChild(0).position - _tailRoot.position;
-        var desired = outward.normalized * 0.8f + Vector3.down * 0.6f;
+        // 先朝床沿外、略向下；床面内的段落由 ClampTailInsideBed 抬住，床沿外自然下垂。
+        var desired = outward.normalized * 0.95f + Vector3.down * 0.2f;
         if (segment.sqrMagnitude > 0.0001f && desired.sqrMagnitude > 0.0001f)
         {
             _tailRoot.rotation = Quaternion.FromToRotation(segment.normalized, desired.normalized) * _tailRoot.rotation;
+        }
+
+        StraightenTailForSleep(outward);
+    }
+
+    void StraightenTailForSleep(Vector3 outward)
+    {
+        if (_tailRoot == null)
+        {
+            return;
+        }
+
+        if (_tailBones.Count == 0)
+        {
+            foreach (var bone in _tailRoot.GetComponentsInChildren<Transform>(true))
+            {
+                if (bone.name.StartsWith("DS_whale_tail", System.StringComparison.Ordinal))
+                {
+                    _tailBones.Add(bone);
+                }
+            }
+        }
+
+        if (_tailBones.Count < 2)
+        {
+            return;
+        }
+
+        var dir = outward;
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        dir.Normalize();
+        for (var i = 1; i < _tailBones.Count; i++)
+        {
+            var bone = _tailBones[i];
+            if (bone == null || bone.childCount == 0)
+            {
+                continue;
+            }
+
+            var child = bone.GetChild(0);
+            var segment = child.position - bone.position;
+            if (segment.sqrMagnitude < 0.0001f)
+            {
+                continue;
+            }
+
+            // 越靠尾部越向下，形成自然下垂；床面内的部分会被 ClampTailInsideBed 抬住
+            var droop = 0.15f * i / Mathf.Max(1, _tailBones.Count - 1);
+            var targetDir = (dir + Vector3.down * droop).normalized;
+            bone.rotation = Quaternion.FromToRotation(segment.normalized, targetDir) * bone.rotation;
+        }
+    }
+
+    void ClampTailInsideBed()
+    {
+        if (_tailBones.Count == 0 && _tailRoot != null)
+        {
+            foreach (var bone in _tailRoot.GetComponentsInChildren<Transform>(true))
+            {
+                if (bone.name.StartsWith("DS_whale_tail", System.StringComparison.Ordinal))
+                {
+                    _tailBones.Add(bone);
+                }
+            }
+        }
+
+        if (_bedBounds.size.sqrMagnitude <= 0f || _tailBones.Count == 0)
+        {
+            return;
+        }
+
+        const float clearance = 0.035f;
+        var surface = _bedBounds.max.y + clearance;
+        foreach (var bone in _tailBones)
+        {
+            var p = bone.position;
+            var insideXZ = p.x > _bedBounds.min.x && p.x < _bedBounds.max.x
+                        && p.z > _bedBounds.min.z && p.z < _bedBounds.max.z;
+            if (insideXZ && p.y < surface)
+            {
+                bone.position = new Vector3(p.x, surface, p.z);
+            }
         }
     }
 
@@ -452,8 +552,9 @@ public class SleepController : MonoBehaviour
         var hipOffset = Quaternion.Euler(0f, yawDelta, 0f) * (hips.position - npc.transform.position);
         var bed = mattress.Value;
         _bedCenter = bed.center;
+        _bedBounds = bed;
         _surfaceY = bed.max.y;
-        var targetHips = new Vector3(bed.center.x + 0.25f, _surfaceY + hipsSleepOffset, bed.max.z - 0.55f);
+        var targetHips = new Vector3(bed.center.x - 0.2f, _surfaceY + hipsSleepOffset, bed.max.z - 0.55f);
         _sleepPosition = targetHips - hipOffset;
         _hipOffset = hipOffset.y;
         GameLog.Event(
