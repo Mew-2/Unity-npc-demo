@@ -120,6 +120,12 @@ $env:OFFLINE="1"
 - `Tools → DawnAndDusk → Run Sleep Test` 自动重建 Animator/场景并输出正面、侧面、斜前方和 POV 截图到 `DawnAndDusk/dsh-sleep-test/`；20 项通过。服务端 15 项通过。A/B 材质排查确认上装泡泡袖遮脸，整条左臂向髋部收拢并微调视线后正脸无遮挡；三视图存于 `docs/references/deepseek-three-view.png`。
 - 摇篮曲回归支持有音频验播放、无音频验文字兜底。
 
+**2026-11-25 修复陪睡尾巴穿床（鲸蕙，公司机 DeepSeek）**：
+
+- 回退 `f9447c5` 的逐节拉直 + 世界坐标硬抬：那版会让尾巴变成硬帆，并顺带移动髋位。现只定尾根朝向（睡姿背侧/窗边、近水平微垂 9°），再只旋转仍在床面投影内且低于 `床面+0.17m` 的尾骨；床沿外不干预，保持弹簧自然下垂。
+- `SleepPlayTest` 新增网格级断言：`BakeMesh` 烘焙 `whale_tail`，按床 XZ 投影（内缩 0.10m）逐顶点检查，并在睡姿循环前后各采一次；新增窗边过道、床尾低机位、俯视截图。
+- 基线骨骼 -0.375m / 网格 -0.512m；修复后骨骼 +0.150m / 网格 +0.023m，24 项通过。截图输出 `DawnAndDusk/dsh-sleep-test/`。
+
 ## 5. 下一步
 
 1. 对话站位：用玩家身体 yaw + `Physics.Linecast` 视线校验，距离 1.0m
@@ -135,4 +141,4 @@ $env:OFFLINE="1"
 
 ---
 
-> 参与者：Mew-2（人）+ 鲸蕙（DSH-C）+ 鲸若（DSH-P）+ 月铃（公司机 Kimi）+ 月谣（自机 Kimi）｜最后核对 2026-11-23
+> 参与者：Mew-2（人）+ 鲸蕙（公司机 DeepSeek）+ 鲸若（自机 DeepSeek）+ 月铃（公司机 Kimi）+ 月谣（自机 Kimi）｜最后核对 2026-11-25

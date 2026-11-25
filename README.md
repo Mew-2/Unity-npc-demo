@@ -14,7 +14,7 @@
 
 ## 开发方式
 
-本项目由 **Mew-2** 与 AI 编程助手结对完成：**DeepSeek**（经 DeepSeek Harness）的代号为 **鲸蕙**（公司机）、**鲸若**（个人笔记本）；**Kimi**（经 Kimi Code）的代号为 **月铃**（公司机）、**月谣**（个人笔记本）。AI 负责初稿、脚本与排错，Mew-2 负责需求、验收、场景/锚点、调试现场与最终取舍。每个模块的归属、用户改动与 3 问自测记录见 [docs/OWNERSHIP.md](docs/OWNERSHIP.md)。
+本项目由 **Mew-2** 与 AI 编程助手结对完成：**鲸蕙**（公司机 DeepSeek）、**鲸若**（自机 DeepSeek）；**月铃**（公司机 Kimi）、**月谣**（自机 Kimi）。AI 负责初稿、脚本与排错，Mew-2 负责需求、验收、场景/锚点、调试现场与最终取舍。每个模块的归属、用户改动与 3 问自测记录见 [docs/OWNERSHIP.md](docs/OWNERSHIP.md)。
 
 ## 考纲对齐
 

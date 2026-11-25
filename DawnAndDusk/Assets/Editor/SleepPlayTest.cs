@@ -80,6 +80,8 @@ public static class SleepPlayTest
             yield break;
         }
 
+        LogBedRenderers();
+
         yield return Execute(executor, new[]
         {
             new DirectorClient.CommandDto { op = "set", target = "npc", state = "sleep" },
@@ -130,41 +132,65 @@ public static class SleepPlayTest
         {
             if (bone.name == "DS_whale_tail_01") { tailRoot = bone; }
             if (bone.name == "DS_whale_tail_05_CharakitEnd") { tailTip = bone; }
-            if (bone.name.StartsWith("DS_whale_tail", StringComparison.Ordinal))
-            {
-                tailBones.Add(bone);
-            }
+            if (bone.name.StartsWith("DS_whale_tail", StringComparison.Ordinal)) { tailBones.Add(bone); }
         }
         var outside = tailTip != null && (tailTip.position.z < bed.min.z || tailTip.position.z > bed.max.z
             || tailTip.position.x < bed.min.x || tailTip.position.x > bed.max.x);
+        Check(tailRoot != null && tailTip != null && outside && tailTip.position.y < tailRoot.position.y,
+            "tail_droops_off_bed", tailTip != null ? tailTip.position.ToString("F2") : "missing");
+
         GameLog.Event("sleep_tail_probe",
             "root", tailRoot != null ? tailRoot.position.ToString("F3") : "missing",
             "tip", tailTip != null ? tailTip.position.ToString("F3") : "missing",
             "bedMin", bed.min.ToString("F3"),
             "bedMax", bed.max.ToString("F3"));
-        Check(tailRoot != null && tailTip != null && outside && tailTip.position.y < tailRoot.position.y,
-            "tail_droops_off_bed", tailTip != null ? tailTip.position.ToString("F2") : "missing");
 
-        // 尾巴不能有任何一段低于床面（穿床）；窗边过道视角主要看这个
-        var tailInside = false;
-        var worstTail = string.Empty;
+        // 骨骼点：床面投影内不得低于床面
+        var boneInside = false;
+        var worstBone = string.Empty;
+        var worstBoneClearance = float.PositiveInfinity;
         foreach (var bone in tailBones)
         {
             var p = bone.position;
-            var insideXZ = p.x > bed.min.x && p.x < bed.max.x && p.z > bed.min.z && p.z < bed.max.z;
-            if (insideXZ && p.y < bed.max.y + 0.02f)
+            if (!InsideXZ(p, bed)) { continue; }
+            var clearance = p.y - bed.max.y;
+            if (clearance < worstBoneClearance)
             {
-                tailInside = true;
-                worstTail = $"{bone.name}@{p:F2} surface={bed.max.y:F2}";
-                break;
+                worstBoneClearance = clearance;
+                worstBone = $"{bone.name}@{p:F2}";
             }
+            if (clearance < -0.005f) { boneInside = true; }
         }
-        Check(!tailInside, "tail_not_inside_bed", worstTail);
+        Check(!boneInside, "tail_not_inside_bed",
+            float.IsPositiveInfinity(worstBoneClearance) ? "none-over-bed" : $"{worstBone} c={worstBoneClearance:F3}");
+
+        // 网格顶点：薄而宽的尾鳍只看骨骼会漏检（上一版就是这样过的）
+        var tailRenderer = WhaleTailRenderer(npc);
+        Check(tailRenderer != null, "tail_mesh_found",
+            tailRenderer != null ? tailRenderer.gameObject.name : "missing");
+        var meshClearance = TailMeshClearance(npc, bed, out var worstVertex, out var vertexCount);
+        GameLog.Event("sleep_tail_mesh",
+            "renderer", tailRenderer != null ? tailRenderer.gameObject.name : "missing",
+            "vertsOverBed", vertexCount.ToString(),
+            "inset", "0.10",
+            "clearance", GameLog.F(meshClearance),
+            "worst", worstVertex);
+        Check(!float.IsNaN(meshClearance) && meshClearance >= -0.01f, "tail_mesh_clear_bed",
+            float.IsNaN(meshClearance) ? "missing" : $"c={meshClearance:F3} {worstVertex}");
         var lowerArm = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
         Check(lowerArm.position.y < head.position.y - 0.12f, "sleep_sleeve_lowered",
             $"{lowerArm.position.y:F2},{head.position.y:F2}");
         CaptureViews(npc, animator, "01-sleep");
         CaptureView(Camera.main, "01-sleep-pov.png");
+
+        // 睡姿循环往后走 2 秒再采一次，确认呼吸/弹簧不会把尾鳍压回床里
+        yield return new WaitForSeconds(2f);
+        var lateMeshClearance = TailMeshClearance(npc, bed, out var lateWorst, out _);
+        GameLog.Event("sleep_tail_mesh_late",
+            "clearance", GameLog.F(lateMeshClearance),
+            "worst", lateWorst);
+        Check(!float.IsNaN(lateMeshClearance) && lateMeshClearance >= -0.01f, "tail_mesh_clear_bed_late",
+            float.IsNaN(lateMeshClearance) ? "missing" : $"c={lateMeshClearance:F3} {lateWorst}");
 
         yield return Execute(executor, new[]
         {
@@ -233,6 +259,89 @@ public static class SleepPlayTest
         return mattress ?? new Bounds(Vector3.zero, Vector3.zero);
     }
 
+    static void LogBedRenderers()
+    {
+        foreach (var renderer in UnityEngine.Object.FindObjectsOfType<Renderer>())
+        {
+            var name = renderer.gameObject.name;
+            if (name.IndexOf("Bed_Bedroom", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                continue;
+            }
+            GameLog.Event("sleep_bed_renderer",
+                "name", name,
+                "min", renderer.bounds.min.ToString("F2"),
+                "max", renderer.bounds.max.ToString("F2"));
+        }
+    }
+
+    static bool InsideXZ(Vector3 p, Bounds bed, float inset = 0f)
+    {
+        return p.x > bed.min.x + inset && p.x < bed.max.x - inset
+            && p.z > bed.min.z + inset && p.z < bed.max.z - inset;
+    }
+
+    static SkinnedMeshRenderer WhaleTailRenderer(NpcAgent npc)
+    {
+        foreach (var renderer in npc.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            var mesh = renderer.sharedMesh;
+            if (mesh == null) { continue; }
+            var meshName = mesh.name.ToLowerInvariant();
+            var goName = renderer.gameObject.name.ToLowerInvariant();
+            if (meshName.Contains("body_00004") || meshName.Contains("whale_tail") || goName.Contains("whale_tail"))
+            {
+                return renderer;
+            }
+        }
+        return null;
+    }
+
+    static float TailMeshClearance(NpcAgent npc, Bounds bed, out string worstVertex, out int vertexCount)
+    {
+        worstVertex = string.Empty;
+        vertexCount = 0;
+        var renderer = WhaleTailRenderer(npc);
+        if (renderer == null)
+        {
+            return float.NaN;
+        }
+
+        var mesh = new Mesh();
+        try
+        {
+            renderer.BakeMesh(mesh);
+            var vertices = mesh.vertices;
+            var matrix = renderer.transform.localToWorldMatrix;
+            var clearance = float.PositiveInfinity;
+            for (var i = 0; i < vertices.Length; i++)
+            {
+                var p = matrix.MultiplyPoint3x4(vertices[i]);
+                if (!InsideXZ(p, bed))
+                {
+                    continue;
+                }
+
+                vertexCount++;
+                var c = p.y - bed.max.y;
+                if (!InsideXZ(p, bed, 0.10f))
+                {
+                    continue;
+                }
+                if (c < clearance)
+                {
+                    clearance = c;
+                    worstVertex = $"{renderer.name}@{p:F3}";
+                }
+            }
+            return clearance;
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(mesh);
+        }
+    }
+
     static void CaptureViews(NpcAgent npc, Animator animator, string file)
     {
         Directory.CreateDirectory(OutDir);
@@ -255,31 +364,24 @@ public static class SleepPlayTest
             CaptureView(camera, $"{file}-{names[i]}.png");
         }
 
-        // 窗边过道视角：专门看尾巴超出床沿后的下垂与穿床
-        var window = GameObject.Find("Anchor_window");
-        if (window != null)
-        {
-            camera.transform.position = window.transform.position + new Vector3(0.0f, 1.6f, -1.8f);
-            camera.transform.rotation = Quaternion.LookRotation(target - camera.transform.position, Vector3.up);
-            CaptureView(camera, $"{file}-window.png");
-        }
+        var bed = BedBounds();
+        var hipsPos = hips != null ? hips.position : npc.transform.position;
 
-        // 对准尾巴尖的两个特写，确认没有穿床/穿墙
-        Transform tailTip = null;
-        foreach (var bone in npc.GetComponentsInChildren<Transform>(true))
-        {
-            if (bone.name == "DS_whale_tail_05_CharakitEnd") { tailTip = bone; break; }
-        }
-        if (tailTip != null)
-        {
-            var offsets = new[] { new Vector3(1.2f, 0.9f, -0.8f), new Vector3(-1.2f, 0.9f, 0.8f) };
-            for (var i = 0; i < offsets.Length; i++)
-            {
-                camera.transform.position = tailTip.position + offsets[i];
-                camera.transform.rotation = Quaternion.LookRotation(tailTip.position - camera.transform.position, Vector3.up);
-                CaptureView(camera, $"{file}-tail-{i}.png");
-            }
-        }
+        // 窗边过道斜机位（+Z / 床尾角）：看尾巴越过床沿后的自然下垂
+        var aisleZ = Mathf.Min(bed.max.z + 0.15f, 3.30f);
+        camera.transform.position = new Vector3(bed.min.x - 0.45f, bed.max.y + 1.05f, aisleZ);
+        camera.transform.rotation = Quaternion.LookRotation(target - camera.transform.position, Vector3.up);
+        CaptureView(camera, $"{file}-aisle.png");
+
+        // 床尾低机位（-X 侧）：看尾鳍是否压进床垫
+        camera.transform.position = new Vector3(bed.min.x - 0.95f, bed.max.y + 0.45f, hipsPos.z);
+        camera.transform.rotation = Quaternion.LookRotation(target - camera.transform.position, Vector3.up);
+        CaptureView(camera, $"{file}-foot.png");
+
+        // 俯视：看整条尾巴在床面投影内的走向
+        camera.transform.position = new Vector3(hipsPos.x, bed.max.y + 2.2f, hipsPos.z);
+        camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        CaptureView(camera, $"{file}-top.png");
 
         UnityEngine.Object.Destroy(cameraGo);
     }
